@@ -15,6 +15,7 @@ interface TrainDao {
     @Insert suspend fun insertExercise(exercise: Exercise): Long
     @Insert suspend fun insertExercises(exercises: List<Exercise>)
     @Query("SELECT * FROM exercise ORDER BY id") suspend fun getAllExercises(): List<Exercise>
+    @Query("SELECT COUNT(*) FROM exercise") suspend fun countExercises(): Int
     @Query("DELETE FROM exercise") suspend fun deleteAllExercises()
 
     @Insert suspend fun insertRoutine(routine: Routine): Long

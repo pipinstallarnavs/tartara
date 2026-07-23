@@ -1,0 +1,81 @@
+name,muscleGroup,equipment
+Back Squat,Quads,Barbell
+Front Squat,Quads,Barbell
+Goblet Squat,Quads,Dumbbell
+Bulgarian Split Squat,Quads,Dumbbell
+Leg Press,Quads,Machine
+Hack Squat,Quads,Machine
+Leg Extension,Quads,Machine
+Walking Lunge,Quads,Dumbbell
+Step-up,Quads,Dumbbell
+Conventional Deadlift,Hamstrings,Barbell
+Romanian Deadlift,Hamstrings,Barbell
+Stiff-Leg Deadlift,Hamstrings,Barbell
+Sumo Deadlift,Hamstrings,Barbell
+Lying Leg Curl,Hamstrings,Machine
+Seated Leg Curl,Hamstrings,Machine
+Nordic Curl,Hamstrings,Bodyweight
+Good Morning,Hamstrings,Barbell
+Hip Thrust,Glutes,Barbell
+Glute Bridge,Glutes,Bodyweight
+Cable Pull-through,Glutes,Cable
+Standing Calf Raise,Calves,Machine
+Seated Calf Raise,Calves,Machine
+Bench Press,Chest,Barbell
+Incline Bench Press,Chest,Barbell
+Close-Grip Bench Press,Triceps,Barbell
+Dumbbell Bench Press,Chest,Dumbbell
+Incline Dumbbell Press,Chest,Dumbbell
+Machine Chest Press,Chest,Machine
+Push-up,Chest,Bodyweight
+Dip,Chest,Bodyweight
+Cable Fly,Chest,Cable
+Dumbbell Fly,Chest,Dumbbell
+Pec Deck,Chest,Machine
+Overhead Press,Shoulders,Barbell
+Seated Dumbbell Press,Shoulders,Dumbbell
+Machine Shoulder Press,Shoulders,Machine
+Lateral Raise,Shoulders,Dumbbell
+Cable Lateral Raise,Shoulders,Cable
+Front Raise,Shoulders,Dumbbell
+Rear Delt Fly,Shoulders,Dumbbell
+Reverse Pec Deck,Shoulders,Machine
+Face Pull,Shoulders,Cable
+Upright Row,Shoulders,Barbell
+Shrug,Traps,Barbell
+Dumbbell Shrug,Traps,Dumbbell
+Pull-up,Back,Bodyweight
+Chin-up,Back,Bodyweight
+Lat Pulldown,Back,Cable
+Close-Grip Pulldown,Back,Cable
+Barbell Row,Back,Barbell
+Pendlay Row,Back,Barbell
+Dumbbell Row,Back,Dumbbell
+Chest-Supported Row,Back,Dumbbell
+Seated Cable Row,Back,Cable
+T-Bar Row,Back,Machine
+Machine Row,Back,Machine
+Straight-Arm Pulldown,Back,Cable
+Rack Pull,Back,Barbell
+Barbell Curl,Biceps,Barbell
+EZ-Bar Curl,Biceps,Barbell
+Dumbbell Curl,Biceps,Dumbbell
+Hammer Curl,Biceps,Dumbbell
+Incline Dumbbell Curl,Biceps,Dumbbell
+Preacher Curl,Biceps,Machine
+Cable Curl,Biceps,Cable
+Skullcrusher,Triceps,Barbell
+Overhead Triceps Extension,Triceps,Dumbbell
+Triceps Pushdown,Triceps,Cable
+Cable Overhead Extension,Triceps,Cable
+Triceps Kickback,Triceps,Dumbbell
+Wrist Curl,Forearms,Barbell
+Reverse Wrist Curl,Forearms,Barbell
+Farmer's Carry,Forearms,Dumbbell
+Plank,Core,Bodyweight
+Hanging Leg Raise,Core,Bodyweight
+Cable Crunch,Core,Cable
+Ab Wheel Rollout,Core,Bodyweight
+Russian Twist,Core,Bodyweight
+Back Extension,Lower Back,Bodyweight
+Barbell Hip Hinge,Lower Back,Barbell
