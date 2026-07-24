@@ -29,6 +29,7 @@ import com.tatara.data.db.TataraDatabase
 import com.tatara.data.food.FoodRepository
 import com.tatara.data.habit.HabitRepository
 import com.tatara.data.sleep.SleepRepository
+import com.tatara.data.train.TrainRepository
 import com.tatara.ui.theme.AppTheme
 import com.tatara.ui.theme.LocalThemeColors
 import com.tatara.ui.theme.ThemePreferences
@@ -48,6 +49,7 @@ fun TataraApp(db: TataraDatabase) {
     val foodRepository = remember { FoodRepository(db) }
     val habitRepository = remember { HabitRepository(db) }
     val sleepRepository = remember { SleepRepository(db) }
+    val trainRepository = remember { TrainRepository(db) }
 
     CompositionLocalProvider(LocalThemeColors provides theme.colors) {
         val c = LocalThemeColors.current
@@ -73,7 +75,7 @@ fun TataraApp(db: TataraDatabase) {
                     when (tab) {
                         Tab.DASHBOARD -> DashboardStub(onOpenSettings = { showSettings = true })
                         Tab.FOOD -> FoodScreen(foodRepository)
-                        Tab.TRAIN -> EmptyTab()
+                        Tab.TRAIN -> TrainScreen(trainRepository)
                         Tab.HABITS -> HabitsScreen(habitRepository)
                         Tab.SLEEP -> SleepScreen(sleepRepository)
                     }
@@ -141,10 +143,3 @@ private fun DashboardStub(onOpenSettings: () -> Unit) {
     }
 }
 
-@Composable
-private fun EmptyTab() {
-    val c = LocalThemeColors.current
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text("Nothing here yet.", color = c.muted, fontSize = 14.sp)
-    }
-}
