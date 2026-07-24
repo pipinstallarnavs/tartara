@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.sp
 import com.tatara.data.db.TataraDatabase
 import com.tatara.data.food.FoodRepository
 import com.tatara.data.habit.HabitRepository
+import com.tatara.data.sleep.SleepRepository
 import com.tatara.ui.theme.AppTheme
 import com.tatara.ui.theme.LocalThemeColors
 import com.tatara.ui.theme.ThemePreferences
@@ -46,6 +47,7 @@ fun TataraApp(db: TataraDatabase) {
     var showSettings by remember { mutableStateOf(false) }
     val foodRepository = remember { FoodRepository(db) }
     val habitRepository = remember { HabitRepository(db) }
+    val sleepRepository = remember { SleepRepository(db) }
 
     CompositionLocalProvider(LocalThemeColors provides theme.colors) {
         val c = LocalThemeColors.current
@@ -73,7 +75,7 @@ fun TataraApp(db: TataraDatabase) {
                         Tab.FOOD -> FoodScreen(foodRepository)
                         Tab.TRAIN -> EmptyTab()
                         Tab.HABITS -> HabitsScreen(habitRepository)
-                        Tab.SLEEP -> EmptyTab()
+                        Tab.SLEEP -> SleepScreen(sleepRepository)
                     }
                 }
             }
