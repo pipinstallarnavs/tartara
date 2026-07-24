@@ -6,6 +6,7 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import com.tatara.data.db.dao.BodyDao
 import com.tatara.data.db.dao.DashboardDao
 import com.tatara.data.db.dao.FoodDao
@@ -45,7 +46,7 @@ import com.tatara.data.db.entity.XpEvent
         SleepTarget::class, SleepLog::class, CurfewLog::class, SleepChecklist::class,
         XpEvent::class, TierCrossing::class, WeeklyReview::class, DailyRollup::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -58,9 +59,19 @@ abstract class TataraDatabase : RoomDatabase() {
     abstract fun dashboardDao(): DashboardDao
 
     companion object {
+        /** v2: BMR profile + TDEE job bookkeeping on settings (all nullable). */
+        val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE settings ADD COLUMN heightCm REAL")
+                db.execSQL("ALTER TABLE settings ADD COLUMN birthYear INTEGER")
+                db.execSQL("ALTER TABLE settings ADD COLUMN sex TEXT")
+                db.execSQL("ALTER TABLE settings ADD COLUMN lastProcessedWeekEnd TEXT")
+            }
+        }
+
         // §2.3 — one Migration per on-device schema step. fallbackToDestructiveMigration
         // is forbidden: it deletes everything on schema change.
-        val MIGRATIONS: Array<Migration> = arrayOf()
+        val MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_1_2)
 
         fun build(context: Context): TataraDatabase =
             Room.databaseBuilder(context, TataraDatabase::class.java, "tatara.db")

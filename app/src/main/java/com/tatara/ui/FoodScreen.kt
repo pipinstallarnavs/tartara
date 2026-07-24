@@ -4,12 +4,15 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -33,6 +36,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.tatara.data.db.dao.EntryWithFood
 import com.tatara.data.db.entity.Food
+import com.tatara.data.food.FatPace
+import com.tatara.data.food.FatPaceState
 import com.tatara.data.food.FoodRepository
 import com.tatara.data.food.LogResult
 import com.tatara.data.food.MacroMath
@@ -49,6 +54,7 @@ fun FoodScreen(repo: FoodRepository) {
     var input by remember { mutableStateOf("") }
     var entries by remember { mutableStateOf(listOf<EntryWithFood>()) }
     var totals by remember { mutableStateOf(MacroTotals()) }
+    var targets by remember { mutableStateOf<com.tatara.data.db.entity.TargetAdjustment?>(null) }
     var candidates by remember { mutableStateOf(listOf<Food>()) }
     var pendingQuantity by remember { mutableStateOf<Float?>(null) }
     var notice by remember { mutableStateOf<String?>(null) }
@@ -56,6 +62,7 @@ fun FoodScreen(repo: FoodRepository) {
     suspend fun refresh() {
         entries = repo.entriesOn()
         totals = repo.totalsOn()
+        targets = repo.latestTargets()
     }
 
     LaunchedEffect(Unit) { refresh() }
@@ -149,6 +156,10 @@ fun FoodScreen(repo: FoodRepository) {
 
         Spacer(modifier = Modifier.height(16.dp))
         TotalsLine(totals)
+        targets?.let { t ->
+            Spacer(modifier = Modifier.height(12.dp))
+            FatPaceSection(t, totals)
+        }
         Spacer(modifier = Modifier.height(8.dp))
         Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(c.hairline))
 
@@ -166,6 +177,56 @@ fun FoodScreen(repo: FoodRepository) {
                 }
             }
         }
+    }
+}
+
+/**
+ * §3.6 — one horizontal bar with tick marks at the 20% floor and 30% target, plus a
+ * single line of text. That is the entire feature.
+ */
+@Composable
+private fun FatPaceSection(t: com.tatara.data.db.entity.TargetAdjustment, totals: MacroTotals) {
+    val c = LocalThemeColors.current
+    val remainingKcal = t.kcalTarget - totals.kcal
+    val remainingFat = t.fatG - totals.fat
+    val state = FatPace.state(remainingFat, remainingKcal)
+    val fillColor = when (state) {
+        FatPaceState.FAT_LIGHT -> c.cool
+        FatPaceState.ON_PACE -> c.primary
+        FatPaceState.FAT_LOADED -> c.warm.copy(alpha = 0.6f)
+        FatPaceState.SPENT -> c.warm
+        FatPaceState.OVER -> c.muted
+    }
+    val ceilingG = 0.35f * t.kcalTarget / 9f
+    val fill = (totals.fat / ceilingG).coerceIn(0f, 1f)
+    val floorTick = (0.20f * t.kcalTarget / 9f) / ceilingG
+    val targetTick = (0.30f * t.kcalTarget / 9f) / ceilingG
+
+    Column {
+        BoxWithConstraints(modifier = Modifier.fillMaxWidth().height(4.dp).background(c.surface)) {
+            Box(modifier = Modifier.fillMaxWidth(fill).fillMaxHeight().background(fillColor))
+            Box(
+                modifier = Modifier
+                    .offset(x = maxWidth * floorTick)
+                    .width(1.dp)
+                    .fillMaxHeight()
+                    .background(c.hairline)
+            )
+            Box(
+                modifier = Modifier
+                    .offset(x = maxWidth * targetTick)
+                    .width(1.dp)
+                    .fillMaxHeight()
+                    .background(c.hairline)
+            )
+        }
+        Spacer(modifier = Modifier.height(6.dp))
+        val line = buildString {
+            append("${String.format(Locale.US, "%,d", remainingKcal.toInt())} kcal left, ")
+            append("${fmt(remainingFat)}g fat")
+            state.message?.let { append(" — $it") }
+        }
+        Text(line, color = if (state == FatPaceState.ON_PACE) c.muted else fillColor, fontSize = 12.sp)
     }
 }
 

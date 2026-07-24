@@ -83,6 +83,10 @@ class FoodRepository(
     /** §3.1 — the Recent row: the 15 most-logged foods. */
     suspend fun recentFoods(limit: Int = 15): List<Food> = db.foodDao().mostUsed(limit)
 
+    /** Targets currently in effect — null until the first Sunday adjustment lands. */
+    suspend fun latestTargets(): com.tatara.data.db.entity.TargetAdjustment? =
+        db.bodyDao().latestAdjustment()
+
     /** §3.1 — "Repeat yesterday": clones the previous day's log wholesale. */
     suspend fun repeatDay(from: LocalDate, to: LocalDate = today()): Int {
         require(EditWindow.isEditable(to, today())) { "outside the D-2 edit window" }

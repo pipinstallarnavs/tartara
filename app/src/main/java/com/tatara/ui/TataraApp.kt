@@ -57,6 +57,7 @@ fun TataraApp(db: TataraDatabase) {
             Box(modifier = Modifier.weight(1f)) {
                 if (showSettings) {
                     SettingsScreen(
+                        db = db,
                         selected = theme,
                         onSelect = {
                             theme = it

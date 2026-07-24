@@ -16,6 +16,7 @@ interface BodyDao {
     @Query("SELECT * FROM weight_entry WHERE date BETWEEN :from AND :to ORDER BY date")
     suspend fun weightsBetween(from: LocalDate, to: LocalDate): List<WeightEntry>
     @Query("SELECT * FROM weight_entry ORDER BY id") suspend fun getAllWeights(): List<WeightEntry>
+    @Query("SELECT MIN(date) FROM weight_entry") suspend fun firstWeightDate(): LocalDate?
     @Query("DELETE FROM weight_entry") suspend fun deleteAllWeights()
 
     @Insert suspend fun insertAdjustment(adjustment: TargetAdjustment): Long

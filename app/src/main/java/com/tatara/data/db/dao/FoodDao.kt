@@ -39,6 +39,10 @@ interface FoodDao {
     @Transaction
     @Query("SELECT * FROM food_entry WHERE date = :date ORDER BY id")
     suspend fun entriesWithFoodOn(date: LocalDate): List<EntryWithFood>
+    @Transaction
+    @Query("SELECT * FROM food_entry WHERE date BETWEEN :from AND :to ORDER BY id")
+    suspend fun entriesWithFoodBetween(from: LocalDate, to: LocalDate): List<EntryWithFood>
+    @Query("SELECT MIN(date) FROM food_entry") suspend fun firstEntryDate(): LocalDate?
     @Query("SELECT * FROM food_entry WHERE foodId = :foodId ORDER BY id DESC LIMIT 1")
     suspend fun lastEntryFor(foodId: Long): FoodEntry?
     @Query("DELETE FROM food_entry WHERE id = :id") suspend fun deleteEntry(id: Long)

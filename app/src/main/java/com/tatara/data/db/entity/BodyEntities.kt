@@ -52,7 +52,16 @@ data class TargetAdjustment(
     val computedFromWeightKg: Float? = null,
 )
 
-/** Single row, id = 1. ratchetWeightKg is the protein ratchet of §3.4.1 — max EWMA this block. */
+/** For the Mifflin-St Jeor BMR used by the §3.5 sanity bounds. */
+enum class Sex { MALE, FEMALE }
+
+/**
+ * Single row, id = 1. ratchetWeightKg is the protein ratchet of §3.4.1 — max EWMA this
+ * block. heightCm/birthYear/sex exist only for the BMR calorie bounds; all nullable —
+ * the bounds are skipped until they are set. lastProcessedWeekEnd is the Sunday of the
+ * last week the TDEE job has examined (adjusted or skipped), so catch-up never
+ * re-computes a week.
+ */
 @Serializable
 @Entity(tableName = "settings")
 data class Settings(
@@ -61,4 +70,8 @@ data class Settings(
     val goalRatePercent: Float = -0.5f,
     val blockStartDate: LocalDate? = null,
     val ratchetWeightKg: Float? = null,
+    val heightCm: Float? = null,
+    val birthYear: Int? = null,
+    val sex: Sex? = null,
+    val lastProcessedWeekEnd: LocalDate? = null,
 )

@@ -34,6 +34,8 @@ android {
     sourceSets {
         // Repo layout (§0) keeps seed data in /data; bundle it as assets.
         getByName("main").assets.srcDir(rootProject.file("data"))
+        // Exported Room schemas, so migration tests can build old versions.
+        getByName("test").assets.srcDir("$projectDir/schemas")
     }
 
     testOptions {
@@ -64,4 +66,5 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.robolectric:robolectric:4.14.1")
     testImplementation("androidx.test:core:1.6.1")
+    testImplementation("androidx.room:room-testing:2.6.1")
 }

@@ -16,10 +16,21 @@ class NotABackupException : Exception("Not a Tatara backup: missing or invalid s
  * exactly one higher.
  */
 object SchemaMigrations {
-    const val CURRENT = 1
+    const val CURRENT = 2
 
-    // e.g. 1 to ::v1_to_v2 when schema v2 exists.
-    private val steps: Map<Int, (JsonObject) -> JsonObject> = emptyMap()
+    private val steps: Map<Int, (JsonObject) -> JsonObject> = mapOf(
+        1 to ::v1_to_v2,
+    )
+
+    /**
+     * v2 added nullable-with-default fields to settings (heightCm, birthYear, sex,
+     * lastProcessedWeekEnd). Absent keys decode to their defaults, so the only work
+     * is the version stamp.
+     */
+    private fun v1_to_v2(root: JsonObject): JsonObject =
+        JsonObject(root.toMutableMap().apply {
+            put("schemaVersion", kotlinx.serialization.json.JsonPrimitive(2))
+        })
 
     fun migrate(root: JsonObject): JsonObject {
         var current = root
