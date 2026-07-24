@@ -73,7 +73,7 @@ fun TataraApp(db: TataraDatabase) {
                     )
                 } else {
                     when (tab) {
-                        Tab.DASHBOARD -> DashboardStub(onOpenSettings = { showSettings = true })
+                        Tab.DASHBOARD -> DashboardScreen(db, theme, onOpenSettings = { showSettings = true })
                         Tab.FOOD -> FoodScreen(foodRepository)
                         Tab.TRAIN -> TrainScreen(trainRepository)
                         Tab.HABITS -> HabitsScreen(habitRepository)
@@ -120,26 +120,4 @@ private fun BottomNav(current: Tab, onSelect: (Tab) -> Unit) {
     }
 }
 
-@Composable
-private fun DashboardStub(onOpenSettings: () -> Unit) {
-    val c = LocalThemeColors.current
-    Column(modifier = Modifier.fillMaxSize()) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.End,
-        ) {
-            Text(
-                text = "Settings",
-                color = c.muted,
-                fontSize = 14.sp,
-                modifier = Modifier
-                    .clickable(onClick = onOpenSettings)
-                    .padding(16.dp),
-            )
-        }
-        Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-            Text("Nothing here yet.", color = c.muted, fontSize = 14.sp)
-        }
-    }
-}
 

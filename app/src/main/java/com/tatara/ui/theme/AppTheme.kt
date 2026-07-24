@@ -70,7 +70,4 @@ private val tierNamesByTheme: Map<AppTheme, List<String>> = mapOf(
 fun AppTheme.tierName(bandIndex: Int): String = tierNamesByTheme.getValue(this)[bandIndex]
 
 /** Bands: 1–11, 12–22, …, 78–88, 89–100 (§7.3). */
-fun bandIndexForLevel(level: Int): Int {
-    require(level in 1..100) { "level $level outside 1..100" }
-    return ((level - 1) / 11).coerceAtMost(8)
-}
+fun bandIndexForLevel(level: Int): Int = com.tatara.data.dashboard.Levels.bandFor(level)

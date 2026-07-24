@@ -4,16 +4,20 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Update
 import com.tatara.data.db.entity.DailyRollup
 import com.tatara.data.db.entity.TierCrossing
 import com.tatara.data.db.entity.WeeklyReview
 import com.tatara.data.db.entity.XpEvent
+import java.time.LocalDate
 
 @Dao
 interface DashboardDao {
     @Insert suspend fun insertXpEvent(event: XpEvent): Long
     @Insert suspend fun insertXpEvents(events: List<XpEvent>)
     @Query("SELECT COALESCE(SUM(amount), 0) FROM xp_event") suspend fun totalXp(): Long
+    @Query("SELECT COALESCE(SUM(amount), 0) FROM xp_event WHERE date BETWEEN :from AND :to")
+    suspend fun xpBetween(from: LocalDate, to: LocalDate): Long
     @Query("SELECT * FROM xp_event ORDER BY id") suspend fun getAllXpEvents(): List<XpEvent>
     @Query("DELETE FROM xp_event") suspend fun deleteAllXpEvents()
 
@@ -24,6 +28,11 @@ interface DashboardDao {
 
     @Insert suspend fun insertReview(review: WeeklyReview): Long
     @Insert suspend fun insertReviews(reviews: List<WeeklyReview>)
+    @Update suspend fun updateReview(review: WeeklyReview)
+    @Query("SELECT * FROM weekly_review WHERE weekStart = :weekStart LIMIT 1")
+    suspend fun reviewByWeekStart(weekStart: LocalDate): WeeklyReview?
+    @Query("SELECT * FROM weekly_review WHERE id = :id") suspend fun reviewById(id: Long): WeeklyReview?
+    @Query("SELECT * FROM weekly_review ORDER BY weekStart DESC") suspend fun reviewsNewestFirst(): List<WeeklyReview>
     @Query("SELECT * FROM weekly_review ORDER BY id") suspend fun getAllReviews(): List<WeeklyReview>
     @Query("DELETE FROM weekly_review") suspend fun deleteAllReviews()
 

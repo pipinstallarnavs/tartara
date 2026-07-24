@@ -80,9 +80,18 @@ abstract class TataraDatabase : RoomDatabase() {
         // is forbidden: it deletes everything on schema change.
         val MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3)
 
+        @Volatile
+        private var instance: TataraDatabase? = null
+
+        /** Process-wide singleton — the widget and the app share one connection. */
         fun build(context: Context): TataraDatabase =
-            Room.databaseBuilder(context, TataraDatabase::class.java, "tatara.db")
-                .addMigrations(*MIGRATIONS)
-                .build()
+            instance ?: synchronized(this) {
+                instance ?: Room.databaseBuilder(
+                    context.applicationContext, TataraDatabase::class.java, "tatara.db"
+                )
+                    .addMigrations(*MIGRATIONS)
+                    .build()
+                    .also { instance = it }
+            }
     }
 }

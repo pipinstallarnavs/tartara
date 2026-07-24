@@ -23,6 +23,8 @@ interface BodyDao {
     @Insert suspend fun insertAdjustments(adjustments: List<TargetAdjustment>)
     @Query("SELECT * FROM target_adjustment ORDER BY effectiveFrom DESC LIMIT 1")
     suspend fun latestAdjustment(): TargetAdjustment?
+    @Query("SELECT * FROM target_adjustment WHERE effectiveFrom <= :date ORDER BY effectiveFrom DESC, id DESC LIMIT 1")
+    suspend fun adjustmentOn(date: LocalDate): TargetAdjustment?
     @Query("SELECT * FROM target_adjustment ORDER BY id")
     suspend fun getAllAdjustments(): List<TargetAdjustment>
     @Query("DELETE FROM target_adjustment") suspend fun deleteAllAdjustments()
