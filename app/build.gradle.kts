@@ -34,8 +34,9 @@ android {
     sourceSets {
         // Repo layout (§0) keeps seed data in /data; bundle it as assets.
         getByName("main").assets.srcDir(rootProject.file("data"))
-        // Exported Room schemas, so migration tests can build old versions.
-        getByName("test").assets.srcDir("$projectDir/schemas")
+        // Exported Room schemas as debug-only assets, so Robolectric migration
+        // tests can build old DB versions. Not packaged into release.
+        getByName("debug").assets.srcDir("$projectDir/schemas")
     }
 
     testOptions {

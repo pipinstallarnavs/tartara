@@ -120,6 +120,37 @@ class BackupRoundTripTest {
     }
 
     @Test
+    fun importsV1FileThroughTheMigrationChain() = runBlocking {
+        seedEverything()
+        val before = snapshot()
+
+        // A faithful v1 file: schemaVersion 1, settings without the v2 fields.
+        val root = Json.parseToJsonElement(backup.export()).jsonObject
+        val data = root["data"]!!.jsonObject
+        val v1Settings = data["settings"]!!.jsonObject
+            .filterKeys { it !in setOf("heightCm", "birthYear", "sex", "lastProcessedWeekEnd") }
+        val v1 = kotlinx.serialization.json.JsonObject(
+            root.toMutableMap().apply {
+                put("schemaVersion", JsonPrimitive(1))
+                put(
+                    "data",
+                    kotlinx.serialization.json.JsonObject(
+                        data.toMutableMap().apply {
+                            put("settings", kotlinx.serialization.json.JsonObject(v1Settings))
+                        }
+                    ),
+                )
+            }
+        )
+
+        db.clearAllTables()
+        backup.import(Json.encodeToString(kotlinx.serialization.json.JsonObject.serializer(), v1))
+
+        // v2 fields default to null; everything else survives unchanged.
+        assertEquals(before, snapshot())
+    }
+
+    @Test
     fun import_refusesNonBackupJson() = runBlocking {
         seedEverything()
         val before = snapshot()

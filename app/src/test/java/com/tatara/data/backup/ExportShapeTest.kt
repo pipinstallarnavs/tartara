@@ -57,7 +57,10 @@ class ExportShapeTest {
                 "meanDailyKcal", "ewmaStart", "ewmaEnd", "impliedTdee",
                 "weeklyRatePercent", "computedFromWeightKg",
             ),
-            "settings" to setOf("id", "proteinPerKg", "goalRatePercent", "blockStartDate", "ratchetWeightKg"),
+            "settings" to setOf(
+                "id", "proteinPerKg", "goalRatePercent", "blockStartDate", "ratchetWeightKg",
+                "heightCm", "birthYear", "sex", "lastProcessedWeekEnd",
+            ),
             "exercise" to setOf("id", "name", "muscleGroup", "equipment"),
             "routine" to setOf("id", "name", "sortOrder"),
             "routineItem" to setOf(
