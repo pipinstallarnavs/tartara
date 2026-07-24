@@ -8,8 +8,10 @@ import com.tatara.data.dashboard.DayCloseService
 import com.tatara.data.dashboard.ReviewService
 import com.tatara.data.db.Seeder
 import com.tatara.data.db.TataraDatabase
+import androidx.glance.appwidget.updateAll
 import com.tatara.data.tdee.TdeeService
 import com.tatara.ui.TataraApp
+import com.tatara.ui.widget.TataraWidget
 import java.time.LocalDate
 import java.time.ZonedDateTime
 import kotlinx.coroutines.CoroutineScope
@@ -32,6 +34,14 @@ class MainActivity : ComponentActivity() {
         }
         setContent {
             TataraApp(db)
+        }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        // §8 — the widget reflects data changed in the app.
+        CoroutineScope(Dispatchers.IO).launch {
+            TataraWidget().updateAll(applicationContext)
         }
     }
 }
