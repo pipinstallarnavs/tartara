@@ -6,8 +6,10 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import com.tatara.data.db.Seeder
 import com.tatara.data.db.TataraDatabase
+import com.tatara.data.habit.HabitCloseService
 import com.tatara.data.tdee.TdeeService
 import com.tatara.ui.TataraApp
+import java.time.LocalDate
 import java.time.ZonedDateTime
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -22,6 +24,8 @@ class MainActivity : ComponentActivity() {
             Seeder.seedIfEmpty(applicationContext, db)
             // §3.5 — process every Sunday 23:00 that has passed since the last run.
             TdeeService(db).catchUp(ZonedDateTime.now())
+            // §5.4 — close habit days that have left the edit window.
+            HabitCloseService(db).closeOpenDays(LocalDate.now())
         }
         setContent {
             TataraApp(db)

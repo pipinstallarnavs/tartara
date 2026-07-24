@@ -46,7 +46,7 @@ import com.tatara.data.db.entity.XpEvent
         SleepTarget::class, SleepLog::class, CurfewLog::class, SleepChecklist::class,
         XpEvent::class, TierCrossing::class, WeeklyReview::class, DailyRollup::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -69,9 +69,16 @@ abstract class TataraDatabase : RoomDatabase() {
             }
         }
 
+        /** v3: habit day-close bookkeeping on settings. */
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE settings ADD COLUMN lastHabitDayClosed TEXT")
+            }
+        }
+
         // §2.3 — one Migration per on-device schema step. fallbackToDestructiveMigration
         // is forbidden: it deletes everything on schema change.
-        val MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_1_2)
+        val MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3)
 
         fun build(context: Context): TataraDatabase =
             Room.databaseBuilder(context, TataraDatabase::class.java, "tatara.db")

@@ -4,7 +4,11 @@ import android.content.Context
 import com.tatara.data.db.entity.Exercise
 import com.tatara.data.db.entity.FatSource
 import com.tatara.data.db.entity.Food
+import com.tatara.data.db.entity.Habit
+import com.tatara.data.db.entity.HabitList
+import com.tatara.data.db.entity.Stack
 import com.tatara.data.db.entity.UnitType
+import java.time.Instant
 
 /**
  * Seeds the food database (IFCT 2017, §3.2) and exercise library (§4.1) from bundled
@@ -19,6 +23,38 @@ object Seeder {
         if (db.trainDao().countExercises() == 0) {
             db.trainDao().insertExercises(loadExercises(context))
         }
+        if (db.habitDao().getAllHabits().isEmpty()) {
+            seedHabits(db)
+        }
+    }
+
+    /** §5.1/§5.2 — the split lists and the four stacks, as specified. */
+    private suspend fun seedHabits(db: TataraDatabase, now: Instant = Instant.now()) {
+        val morning = db.habitDao().insertStack(Stack(name = "Morning", sortOrder = 0))
+        val night = db.habitDao().insertStack(Stack(name = "Night", sortOrder = 1))
+        val sit = db.habitDao().insertStack(Stack(name = "Sit", sortOrder = 2))
+        val solo = db.habitDao().insertStack(Stack(name = "Solo", sortOrder = 3))
+
+        fun hygiene(name: String, stackId: Long) =
+            Habit(name = name, list = HabitList.HYGIENE, stackId = stackId, createdAt = now)
+
+        fun habit(name: String, stackId: Long) =
+            Habit(name = name, list = HabitList.HABIT, stackId = stackId, createdAt = now)
+
+        db.habitDao().insertHabits(
+            listOf(
+                hygiene("brush (morning)", morning),
+                hygiene("skincare (morning)", morning),
+                hygiene("pills", morning),
+                hygiene("brush (night)", night),
+                hygiene("skincare (night)", night),
+                habit("journal", night),
+                habit("pray 10 min", sit),
+                habit("mindfulness 10 min", sit),
+                hygiene("bath", solo),
+                habit("read 30 min", solo),
+            )
+        )
     }
 
     fun loadFoods(context: Context): List<Food> =

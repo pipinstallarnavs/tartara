@@ -50,6 +50,12 @@ ksp {
     arg("room.schemaLocation", "$projectDir/schemas")
 }
 
+// The schemas dir doubles as debug assets for migration tests; make sure asset
+// merging sees a freshly exported schema on clean builds.
+tasks.matching { it.name == "mergeDebugAssets" }.configureEach {
+    dependsOn("kspDebugKotlin")
+}
+
 dependencies {
     implementation("androidx.room:room-runtime:2.6.1")
     implementation("androidx.room:room-ktx:2.6.1")

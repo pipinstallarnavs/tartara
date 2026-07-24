@@ -21,7 +21,7 @@ class SettingsMigrationTest {
     )
 
     @Test
-    fun migrate1To2_preservesSettingsAndAddsNullColumns() {
+    fun migrate1To3_preservesSettingsAndAddsNullColumns() {
         helper.createDatabase(DB, 1).apply {
             execSQL(
                 "INSERT INTO settings (id, proteinPerKg, goalRatePercent, blockStartDate, ratchetWeightKg) " +
@@ -30,16 +30,19 @@ class SettingsMigrationTest {
             close()
         }
 
-        val db = helper.runMigrationsAndValidate(DB, 2, true, TataraDatabase.MIGRATION_1_2)
+        val db = helper.runMigrationsAndValidate(
+            DB, 3, true,
+            TataraDatabase.MIGRATION_1_2, TataraDatabase.MIGRATION_2_3,
+        )
 
-        db.query("SELECT proteinPerKg, ratchetWeightKg, heightCm, birthYear, sex, lastProcessedWeekEnd FROM settings WHERE id = 1").use { c ->
+        db.query(
+            "SELECT proteinPerKg, ratchetWeightKg, heightCm, birthYear, sex, lastProcessedWeekEnd, lastHabitDayClosed " +
+                "FROM settings WHERE id = 1"
+        ).use { c ->
             assertTrue(c.moveToFirst())
             assertEquals(2.0f, c.getFloat(0), 0.001f)
             assertEquals(82.5f, c.getFloat(1), 0.001f)
-            assertTrue(c.isNull(2))
-            assertTrue(c.isNull(3))
-            assertTrue(c.isNull(4))
-            assertTrue(c.isNull(5))
+            (2..6).forEach { assertTrue("column $it should be null", c.isNull(it)) }
         }
     }
 

@@ -74,4 +74,6 @@ data class Settings(
     val birthYear: Int? = null,
     val sex: Sex? = null,
     val lastProcessedWeekEnd: LocalDate? = null,
+    /** Last day the §5.4 automaticity engine has closed; days close on leaving the §2.1 edit window. */
+    val lastHabitDayClosed: LocalDate? = null,
 )

@@ -25,6 +25,12 @@ interface HabitDao {
     @Insert suspend fun insertLog(log: HabitLog): Long
     @Insert suspend fun insertLogs(logs: List<HabitLog>)
     @Query("SELECT * FROM habit_log WHERE date = :date") suspend fun logsOn(date: LocalDate): List<HabitLog>
+    @Query("SELECT * FROM habit_log WHERE habitId = :habitId AND date = :date LIMIT 1")
+    suspend fun logFor(habitId: Long, date: LocalDate): HabitLog?
+    @Query("DELETE FROM habit_log WHERE habitId = :habitId AND date = :date")
+    suspend fun deleteLogFor(habitId: Long, date: LocalDate)
+    @Query("SELECT COUNT(*) FROM habit_log WHERE status = 'FROZEN' AND date BETWEEN :from AND :to")
+    suspend fun frozenCountBetween(from: LocalDate, to: LocalDate): Int
     @Query("SELECT * FROM habit_log ORDER BY id") suspend fun getAllLogs(): List<HabitLog>
     @Query("DELETE FROM habit_log") suspend fun deleteAllLogs()
 }

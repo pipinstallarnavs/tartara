@@ -128,7 +128,9 @@ class BackupRoundTripTest {
         val root = Json.parseToJsonElement(backup.export()).jsonObject
         val data = root["data"]!!.jsonObject
         val v1Settings = data["settings"]!!.jsonObject
-            .filterKeys { it !in setOf("heightCm", "birthYear", "sex", "lastProcessedWeekEnd") }
+            .filterKeys {
+                it !in setOf("heightCm", "birthYear", "sex", "lastProcessedWeekEnd", "lastHabitDayClosed")
+            }
         val v1 = kotlinx.serialization.json.JsonObject(
             root.toMutableMap().apply {
                 put("schemaVersion", JsonPrimitive(1))
