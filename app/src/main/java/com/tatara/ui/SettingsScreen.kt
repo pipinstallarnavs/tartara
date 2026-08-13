@@ -35,6 +35,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.tatara.data.db.TataraDatabase
+import com.tatara.data.db.entity.ActivityLevel
 import com.tatara.data.db.entity.Settings
 import com.tatara.data.db.entity.Sex
 import com.tatara.ui.theme.AppTheme
@@ -122,7 +123,7 @@ fun SettingsScreen(
 
             SectionLabel("Profile")
             Text(
-                "Used only for the calorie sanity bounds. Blank disables them.",
+                "Feeds the calorie sanity bounds and the Dashboard's formula estimate. Blank disables both.",
                 color = c.muted, fontSize = 11.sp,
             )
             NumberRow("Height (cm)", settings.heightCm?.toString() ?: "") { v ->
@@ -154,6 +155,25 @@ fun SettingsScreen(
                     },
                     color = c.primary, fontSize = 14.sp,
                 )
+            }
+            Hairline()
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        val entries = ActivityLevel.entries
+                        val next = when (val i = entries.indexOf(settings.activityLevel)) {
+                            -1 -> entries.first()
+                            entries.lastIndex -> null
+                            else -> entries[i + 1]
+                        }
+                        save(settings.copy(activityLevel = next))
+                    }
+                    .padding(vertical = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text("Activity level", color = c.muted, fontSize = 14.sp)
+                Text(settings.activityLevel?.label ?: "—", color = c.primary, fontSize = 14.sp)
             }
             Hairline()
 

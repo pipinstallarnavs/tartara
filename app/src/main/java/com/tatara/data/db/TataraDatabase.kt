@@ -46,7 +46,7 @@ import com.tatara.data.db.entity.XpEvent
         SleepTarget::class, SleepLog::class, CurfewLog::class, SleepChecklist::class,
         XpEvent::class, TierCrossing::class, WeeklyReview::class, DailyRollup::class,
     ],
-    version = 3,
+    version = 5,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -76,9 +76,24 @@ abstract class TataraDatabase : RoomDatabase() {
             }
         }
 
+        /** v4: optional rest seconds + target RPE on the routine slot's prescription. */
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE routine_item ADD COLUMN restSeconds INTEGER")
+                db.execSQL("ALTER TABLE routine_item ADD COLUMN targetRpe REAL")
+            }
+        }
+
+        /** v5: activity level on settings, for the formula-vs-observed maintenance estimate. */
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE settings ADD COLUMN activityLevel TEXT")
+            }
+        }
+
         // §2.3 — one Migration per on-device schema step. fallbackToDestructiveMigration
         // is forbidden: it deletes everything on schema change.
-        val MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3)
+        val MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
 
         @Volatile
         private var instance: TataraDatabase? = null

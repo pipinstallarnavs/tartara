@@ -6,8 +6,8 @@ import com.tatara.data.db.entity.UnitType
 sealed interface MatchResult {
     /** quantity is in grams for GRAM foods, portions for PORTION foods; null if the input had none. */
     data class Resolved(val food: Food, val quantity: Float?) : MatchResult
-    data class Ambiguous(val candidates: List<Food>, val quantity: Float?) : MatchResult
-    data class NoMatch(val query: String) : MatchResult
+    data class Ambiguous(val candidates: List<Food>, val quantity: Float?, val query: String) : MatchResult
+    data class NoMatch(val query: String, val quantity: Float? = null) : MatchResult
 }
 
 /**
@@ -21,7 +21,7 @@ class FoodMatcher(private val foods: List<Food>) {
     private data class Candidate(val food: Food, val quality: Quality)
 
     fun match(input: ParsedInput): MatchResult {
-        if (input.query.isBlank()) return MatchResult.NoMatch(input.query)
+        if (input.query.isBlank()) return MatchResult.NoMatch(input.query, input.quantity)
 
         val candidates = mutableMapOf<Long, Candidate>()
         for (food in foods) {
@@ -29,7 +29,7 @@ class FoodMatcher(private val foods: List<Food>) {
             val existing = candidates[food.id]
             if (existing == null || candidate.quality < existing.quality) candidates[food.id] = candidate
         }
-        if (candidates.isEmpty()) return MatchResult.NoMatch(input.query)
+        if (candidates.isEmpty()) return MatchResult.NoMatch(input.query, input.quantity)
 
         val ranked = candidates.values
             .sortedWith(
@@ -49,7 +49,7 @@ class FoodMatcher(private val foods: List<Food>) {
         return if (resolved != null) {
             MatchResult.Resolved(resolved, quantityFor(resolved, input))
         } else {
-            MatchResult.Ambiguous(ranked.take(5).map { it.food }, input.quantity)
+            MatchResult.Ambiguous(ranked.take(5).map { it.food }, input.quantity, input.query)
         }
     }
 

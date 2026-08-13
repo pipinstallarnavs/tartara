@@ -55,12 +55,21 @@ data class TargetAdjustment(
 /** For the Mifflin-St Jeor BMR used by the §3.5 sanity bounds. */
 enum class Sex { MALE, FEMALE }
 
+/** §3.5 — standard Harris/Mifflin activity multipliers, applied to BMR for the formula estimate. */
+enum class ActivityLevel(val multiplier: Float, val label: String) {
+    SEDENTARY(1.2f, "Sedentary"),
+    LIGHT(1.375f, "Light"),
+    MODERATE(1.55f, "Moderate"),
+    ACTIVE(1.725f, "Active"),
+    VERY_ACTIVE(1.9f, "Very active"),
+}
+
 /**
  * Single row, id = 1. ratchetWeightKg is the protein ratchet of §3.4.1 — max EWMA this
- * block. heightCm/birthYear/sex exist only for the BMR calorie bounds; all nullable —
- * the bounds are skipped until they are set. lastProcessedWeekEnd is the Sunday of the
- * last week the TDEE job has examined (adjusted or skipped), so catch-up never
- * re-computes a week.
+ * block. heightCm/birthYear/sex/activityLevel exist only for the BMR-based formula
+ * estimate shown alongside the observed one; all nullable — the estimate is skipped
+ * until they are set. lastProcessedWeekEnd is the Sunday of the last week the TDEE job
+ * has examined (adjusted or skipped), so catch-up never re-computes a week.
  */
 @Serializable
 @Entity(tableName = "settings")
@@ -73,6 +82,7 @@ data class Settings(
     val heightCm: Float? = null,
     val birthYear: Int? = null,
     val sex: Sex? = null,
+    val activityLevel: ActivityLevel? = null,
     val lastProcessedWeekEnd: LocalDate? = null,
     /** Last day the §5.4 automaticity engine has closed; days close on leaving the §2.1 edit window. */
     val lastHabitDayClosed: LocalDate? = null,

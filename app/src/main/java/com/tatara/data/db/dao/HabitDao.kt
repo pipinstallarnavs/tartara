@@ -20,6 +20,7 @@ interface HabitDao {
     @Insert suspend fun insertHabits(habits: List<Habit>)
     @Update suspend fun updateHabit(habit: Habit)
     @Query("SELECT * FROM habit ORDER BY id") suspend fun getAllHabits(): List<Habit>
+    @Query("DELETE FROM habit WHERE id = :id") suspend fun deleteHabit(id: Long)
     @Query("DELETE FROM habit") suspend fun deleteAllHabits()
 
     @Insert suspend fun insertLog(log: HabitLog): Long

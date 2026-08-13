@@ -12,7 +12,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.text.selection.LocalTextSelectionColors
+import androidx.compose.foundation.text.selection.TextSelectionColors
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
@@ -31,6 +36,7 @@ import com.tatara.data.habit.HabitRepository
 import com.tatara.data.sleep.SleepRepository
 import com.tatara.data.train.TrainRepository
 import com.tatara.ui.theme.AppTheme
+import com.tatara.ui.theme.LocalMotif
 import com.tatara.ui.theme.LocalThemeColors
 import com.tatara.ui.theme.ThemePreferences
 
@@ -46,13 +52,44 @@ fun TataraApp(db: TataraDatabase) {
     var theme by remember { mutableStateOf(themePrefs.load()) }
     var tab by remember { mutableStateOf(Tab.DASHBOARD) }
     var showSettings by remember { mutableStateOf(false) }
+    /** Non-null while the §7.3 fold is playing; holds the newly reached tier name. */
+    var foldTier by remember { mutableStateOf<String?>(null) }
     val foodRepository = remember { FoodRepository(db) }
     val habitRepository = remember { HabitRepository(db) }
     val sleepRepository = remember { SleepRepository(db) }
     val trainRepository = remember { TrainRepository(db) }
 
-    CompositionLocalProvider(LocalThemeColors provides theme.colors) {
-        val c = LocalThemeColors.current
+    val c = theme.colors
+    // Every framework default is overridden at the root: Material's own purple/blue
+    // can never leak into a component we did not colour ourselves, and the text
+    // selection highlight follows the active theme instead of the stock accent.
+    val scheme = darkColorScheme(
+        primary = c.cool,
+        onPrimary = c.ground,
+        secondary = c.warm,
+        onSecondary = c.ground,
+        background = c.ground,
+        onBackground = c.primary,
+        surface = c.surface,
+        onSurface = c.primary,
+        surfaceVariant = c.surfaceHigh,
+        onSurfaceVariant = c.muted,
+        outline = c.hairline,
+        error = c.warm,
+        onError = c.ground,
+    )
+    val selection = TextSelectionColors(handleColor = c.cool, backgroundColor = c.cool.copy(alpha = 0.28f))
+
+    CompositionLocalProvider(
+        LocalThemeColors provides c,
+        LocalMotif provides theme.motif,
+        LocalTextSelectionColors provides selection,
+        LocalContentColor provides c.primary,
+    ) {
+        MaterialTheme(colorScheme = scheme) {
+        // §7.3 — the fold is drawn over the whole app, nav included: crossing a
+        // tier is the one moment allowed to take the entire screen.
+        Box(modifier = Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -73,8 +110,12 @@ fun TataraApp(db: TataraDatabase) {
                     )
                 } else {
                     when (tab) {
-                        Tab.DASHBOARD -> DashboardScreen(db, theme, onOpenSettings = { showSettings = true })
-                        Tab.FOOD -> FoodScreen(foodRepository)
+                        Tab.DASHBOARD -> DashboardScreen(
+                            db, theme,
+                            onOpenSettings = { showSettings = true },
+                            onTierCrossed = { foldTier = it },
+                        )
+                        Tab.FOOD -> FoodScreen(foodRepository, db)
                         Tab.TRAIN -> TrainScreen(trainRepository)
                         Tab.HABITS -> HabitsScreen(habitRepository)
                         Tab.SLEEP -> SleepScreen(sleepRepository)
@@ -85,6 +126,11 @@ fun TataraApp(db: TataraDatabase) {
                 tab = it
                 showSettings = false
             })
+        }
+        foldTier?.let { tier ->
+            FoldOverlay(tierName = tier, onDone = { foldTier = null })
+        }
+        }
         }
     }
 }

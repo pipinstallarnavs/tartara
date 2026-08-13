@@ -88,4 +88,15 @@ class HabitRepository(
         ) return null
         return habit.copy(id = db.habitDao().insertHabit(habit))
     }
+
+    /** Returns false when moving this habit into HABIT would exceed the §5.1 cap. */
+    suspend fun updateHabit(habit: Habit): Boolean {
+        if (habit.list == HabitList.HABIT &&
+            db.habitDao().getAllHabits().count { it.list == HabitList.HABIT && it.id != habit.id } >= HABIT_CAP
+        ) return false
+        db.habitDao().updateHabit(habit)
+        return true
+    }
+
+    suspend fun deleteHabit(id: Long) = db.habitDao().deleteHabit(id)
 }

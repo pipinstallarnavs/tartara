@@ -64,6 +64,9 @@ data class RoutineItem(
     val repRangeHigh: Int,
     val incrementKg: Float,
     val currentWeightKg: Float,
+    /** §4.1 — optional prescription extras; null means "not set", never a fake zero. */
+    val restSeconds: Int? = null,
+    val targetRpe: Float? = null,
 )
 
 @Serializable

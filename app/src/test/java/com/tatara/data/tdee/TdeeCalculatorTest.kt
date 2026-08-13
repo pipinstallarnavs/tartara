@@ -127,6 +127,23 @@ class TdeeCalculatorTest {
     }
 
     @Test
+    fun formulaMaintenanceCombinesBmrAndActivity() {
+        // Mifflin: 10×80 + 6.25×175 − 5×26 + 5 = 1768.75; × 1.55 moderate = 2741.5625.
+        val settings = Settings(
+            heightCm = 175f, birthYear = 2000, sex = Sex.MALE,
+            activityLevel = com.tatara.data.db.entity.ActivityLevel.MODERATE,
+        )
+        val estimate = TdeeCalculator.formulaMaintenance(settings, 80f, LocalDate.of(2026, 7, 23))
+        assertEquals(2741.5625f, estimate!!, 0.5f)
+    }
+
+    @Test
+    fun formulaMaintenanceNullWhenActivityLevelMissing() {
+        val settings = Settings(heightCm = 175f, birthYear = 2000, sex = Sex.MALE)
+        assertNull(TdeeCalculator.formulaMaintenance(settings, 80f, LocalDate.of(2026, 7, 23)))
+    }
+
+    @Test
     fun proteinRatchetNeverDropsMidBlock() {
         // §3.4.1 — ewma 80 but block max was 85: protein stays pegged to 85.
         val out = TdeeCalculator.compute(
