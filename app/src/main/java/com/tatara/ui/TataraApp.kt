@@ -115,7 +115,7 @@ fun TataraApp(db: TataraDatabase) {
                             onOpenSettings = { showSettings = true },
                             onTierCrossed = { foldTier = it },
                         )
-                        Tab.FOOD -> FoodScreen(foodRepository)
+                        Tab.FOOD -> FoodScreen(foodRepository, db)
                         Tab.TRAIN -> TrainScreen(trainRepository)
                         Tab.HABITS -> HabitsScreen(habitRepository)
                         Tab.SLEEP -> SleepScreen(sleepRepository)
