@@ -30,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.tatara.data.db.entity.CurfewLog
@@ -98,9 +99,11 @@ fun SleepScreen(repo: SleepRepository) {
     ) {
         // §6.3 — regularity is the large number; duration is secondary.
         Row(verticalAlignment = Alignment.Bottom) {
+            // With no nights logged the dash is a placeholder, not a reading —
+            // render it dim so it never looks like a value or a broken glyph.
             Text(
                 stats.regularity?.toInt()?.toString() ?: "—",
-                color = c.primary,
+                color = if (stats.regularity != null) c.primary else c.hairline,
                 fontSize = 44.sp,
                 fontFamily = FontFamily.Monospace,
             )
@@ -240,13 +243,26 @@ fun SleepScreen(repo: SleepRepository) {
                     .padding(vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(18.dp)
-                        .background(if (checklist[i]) c.cool else c.surface, RoundedCornerShape(2.dp)),
+                // §2.5 — the theme's mark here too; nothing in the app is a plain box.
+                MotifMark(
+                    checked = checklist[i],
+                    size = 20.dp,
+                    onClick = {
+                        val next = checklist.copyOf().also { it[i] = !it[i] }
+                        checklist = next
+                        scope.launch {
+                            repo.logChecklist(selectedDate, next[0], next[1], next[2], next[3])
+                            correlations = repo.correlations()
+                        }
+                    },
                 )
                 Spacer(modifier = Modifier.width(10.dp))
-                Text(label, color = c.primary, fontSize = 14.sp)
+                Text(
+                    label,
+                    color = if (checklist[i]) c.muted else c.primary,
+                    fontSize = 14.sp,
+                    textDecoration = if (checklist[i]) TextDecoration.LineThrough else null,
+                )
             }
         }
 
@@ -278,14 +294,27 @@ fun SleepScreen(repo: SleepRepository) {
     }
 }
 
+/**
+ * Sleep stacks several unrelated tools, so each gets a titled surface rather than
+ * a bare label over a hairline — otherwise the screen reads as one long list.
+ */
 @Composable
 private fun SleepSection(title: String) {
     val c = LocalThemeColors.current
-    Spacer(modifier = Modifier.height(20.dp))
-    Text(title, color = c.muted, fontSize = 12.sp)
+    Spacer(modifier = Modifier.height(18.dp))
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        MotifGlyph(size = 9.dp)
+        Spacer(modifier = Modifier.width(6.dp))
+        Text(title, color = c.muted, fontSize = 12.sp)
+    }
     Spacer(modifier = Modifier.height(6.dp))
-    Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(c.hairline))
-    Spacer(modifier = Modifier.height(8.dp))
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(2.dp)
+            .background(c.surfaceHigh, RoundedCornerShape(1.dp))
+    )
+    Spacer(modifier = Modifier.height(10.dp))
 }
 
 @Composable

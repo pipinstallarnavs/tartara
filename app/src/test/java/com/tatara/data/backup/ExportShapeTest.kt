@@ -59,13 +59,14 @@ class ExportShapeTest {
             ),
             "settings" to setOf(
                 "id", "proteinPerKg", "goalRatePercent", "blockStartDate", "ratchetWeightKg",
-                "heightCm", "birthYear", "sex", "lastProcessedWeekEnd", "lastHabitDayClosed",
+                "heightCm", "birthYear", "sex", "activityLevel", "lastProcessedWeekEnd", "lastHabitDayClosed",
             ),
             "exercise" to setOf("id", "name", "muscleGroup", "equipment"),
             "routine" to setOf("id", "name", "sortOrder"),
             "routineItem" to setOf(
                 "id", "routineId", "exerciseId", "targetSets", "sortOrder",
                 "repRangeLow", "repRangeHigh", "incrementKg", "currentWeightKg",
+                "restSeconds", "targetRpe",
             ),
             "session" to setOf("id", "date", "routineId", "durationMin", "notes"),
             "setEntry" to setOf(

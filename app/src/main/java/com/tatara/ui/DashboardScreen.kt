@@ -46,6 +46,8 @@ import com.tatara.data.db.entity.WeeklyReview
 import com.tatara.data.food.MacroMath
 import com.tatara.data.food.MacroTotals
 import com.tatara.ui.theme.AppTheme
+import com.tatara.ui.theme.FoldPreferences
+import com.tatara.ui.theme.LocalMotif
 import com.tatara.ui.theme.LocalThemeColors
 import com.tatara.ui.theme.tierName
 import java.time.LocalDate
@@ -54,12 +56,18 @@ import kotlin.math.abs
 import kotlinx.coroutines.launch
 
 @Composable
-fun DashboardScreen(db: TataraDatabase, theme: AppTheme, onOpenSettings: () -> Unit) {
+fun DashboardScreen(
+    db: TataraDatabase,
+    theme: AppTheme,
+    onOpenSettings: () -> Unit,
+    onTierCrossed: (String) -> Unit = {},
+) {
     val c = LocalThemeColors.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val today = remember { LocalDate.now() }
     val reviewService = remember { ReviewService(db) }
+    val foldPrefs = remember { FoldPreferences(context) }
 
     var level by remember { mutableStateOf(1) }
     var band by remember { mutableStateOf(0) }
@@ -76,6 +84,13 @@ fun DashboardScreen(db: TataraDatabase, theme: AppTheme, onOpenSettings: () -> U
     suspend fun refresh() {
         xp = db.dashboardDao().totalXp()
         crossings = db.dashboardDao().getAllTierCrossings()
+        // §7.3 — a crossing this device has not celebrated yet earns the fold. The
+        // prefs claim is one-shot, so it can never replay on a later refresh.
+        crossings.maxByOrNull { it.id }?.let { newest ->
+            if (foldPrefs.claimUnseen(newest.id)) {
+                onTierCrossed(theme.tierName(Levels.bandFor(newest.level)))
+            }
+        }
         val maxBand = crossings.maxOfOrNull { Levels.bandFor(it.level) } ?: -1
         level = Levels.effectiveLevel(xp, maxBand)
         band = Levels.bandFor(level)
@@ -138,7 +153,7 @@ fun DashboardScreen(db: TataraDatabase, theme: AppTheme, onOpenSettings: () -> U
 
         Spacer(modifier = Modifier.height(12.dp))
         Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-            Blade(band = band, fill = fill)
+            Hero(motif = LocalMotif.current, band = band, heat = fill)
         }
         Spacer(modifier = Modifier.height(8.dp))
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {

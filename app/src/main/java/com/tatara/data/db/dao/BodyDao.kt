@@ -13,10 +13,14 @@ import java.time.LocalDate
 interface BodyDao {
     @Insert suspend fun insertWeight(entry: WeightEntry): Long
     @Insert suspend fun insertWeights(entries: List<WeightEntry>)
+    /** Quick-entry re-log for the same day replaces the row (unique on date). */
+    @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun upsertWeight(entry: WeightEntry): Long
+    @Query("SELECT * FROM weight_entry WHERE date = :date LIMIT 1") suspend fun weightOn(date: LocalDate): WeightEntry?
     @Query("SELECT * FROM weight_entry WHERE date BETWEEN :from AND :to ORDER BY date")
     suspend fun weightsBetween(from: LocalDate, to: LocalDate): List<WeightEntry>
     @Query("SELECT * FROM weight_entry ORDER BY id") suspend fun getAllWeights(): List<WeightEntry>
     @Query("SELECT MIN(date) FROM weight_entry") suspend fun firstWeightDate(): LocalDate?
+    @Query("SELECT * FROM weight_entry ORDER BY date DESC LIMIT 1") suspend fun latestWeight(): WeightEntry?
     @Query("DELETE FROM weight_entry") suspend fun deleteAllWeights()
 
     @Insert suspend fun insertAdjustment(adjustment: TargetAdjustment): Long

@@ -156,6 +156,17 @@ object TdeeCalculator {
     }
 
     /**
+     * §3.3 — the formula estimate shown alongside the observed one: BMR × activity
+     * multiplier. Null when the profile (height/birth year/sex/activity) is incomplete
+     * — never silently substituted with a guess.
+     */
+    fun formulaMaintenance(settings: Settings, weightKg: Float, on: LocalDate): Float? {
+        val b = bmr(settings, weightKg, on) ?: return null
+        val activity = settings.activityLevel ?: return null
+        return b * activity.multiplier
+    }
+
+    /**
      * §3.5 — three consecutive weeks whose smoothed delta contradicts the goal.
      * deltas are ewmaEnd − ewmaStart per adjusted week, oldest first, current last.
      */
