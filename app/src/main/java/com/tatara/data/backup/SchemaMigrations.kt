@@ -16,21 +16,28 @@ class NotABackupException : Exception("Not a Tatara backup: missing or invalid s
  * exactly one higher.
  */
 object SchemaMigrations {
-    const val CURRENT = 3
+    const val CURRENT = 5
 
     private val steps: Map<Int, (JsonObject) -> JsonObject> = mapOf(
         1 to ::v1_to_v2,
         2 to ::v2_to_v3,
+        3 to ::v3_to_v4,
+        4 to ::v4_to_v5,
     )
 
     /**
      * v2 added nullable-with-default fields to settings (heightCm, birthYear, sex,
-     * lastProcessedWeekEnd); v3 added lastHabitDayClosed. Absent keys decode to
-     * their defaults, so the only work is the version stamp.
+     * lastProcessedWeekEnd); v3 added lastHabitDayClosed; v4 added restSeconds and
+     * targetRpe to routineItem; v5 added activityLevel to settings. Absent keys
+     * decode to their defaults, so the only work is the version stamp.
      */
     private fun v1_to_v2(root: JsonObject): JsonObject = stamped(root, 2)
 
     private fun v2_to_v3(root: JsonObject): JsonObject = stamped(root, 3)
+
+    private fun v3_to_v4(root: JsonObject): JsonObject = stamped(root, 4)
+
+    private fun v4_to_v5(root: JsonObject): JsonObject = stamped(root, 5)
 
     private fun stamped(root: JsonObject, version: Int): JsonObject =
         JsonObject(root.toMutableMap().apply {

@@ -12,9 +12,9 @@ import java.time.LocalDate
 sealed interface LogResult {
     data class Logged(val entry: FoodEntry, val food: Food) : LogResult
     /** §3.1 — ambiguity is resolved by an inline chip row, never a dialog. */
-    data class Ambiguous(val candidates: List<Food>, val quantity: Float?) : LogResult
+    data class Ambiguous(val candidates: List<Food>, val quantity: Float?, val query: String) : LogResult
     /** §3.1 — offers "Create <query>?" opening the custom food form pre-filled. */
-    data class NoMatch(val query: String) : LogResult
+    data class NoMatch(val query: String, val quantity: Float?) : LogResult
     data object OutsideEditWindow : LogResult
     data object EmptyInput : LogResult
 }
@@ -35,8 +35,8 @@ class FoodRepository(
                 addEntry(match.food, match.quantity ?: defaultQuantity(match.food), date),
                 match.food,
             )
-            is MatchResult.Ambiguous -> LogResult.Ambiguous(match.candidates, match.quantity)
-            is MatchResult.NoMatch -> LogResult.NoMatch(match.query)
+            is MatchResult.Ambiguous -> LogResult.Ambiguous(match.candidates, match.quantity, match.query)
+            is MatchResult.NoMatch -> LogResult.NoMatch(match.query, match.quantity)
         }
     }
 
@@ -82,6 +82,10 @@ class FoodRepository(
 
     /** §3.1 — the Recent row: the 15 most-logged foods. */
     suspend fun recentFoods(limit: Int = 15): List<Food> = db.foodDao().mostUsed(limit)
+
+    /** One-tap re-log at the food's own last-used quantity, or a sensible default. */
+    suspend fun quickAdd(food: Food, date: LocalDate = today()): FoodEntry =
+        addEntry(food, defaultQuantity(food), date)
 
     /** Targets currently in effect — null until the first Sunday adjustment lands. */
     suspend fun latestTargets(): com.tatara.data.db.entity.TargetAdjustment? =

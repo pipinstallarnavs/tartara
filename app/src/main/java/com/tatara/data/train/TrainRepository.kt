@@ -23,6 +23,10 @@ data class PrefillSet(
     val incremented: Boolean = false,
     /** §4.2 — the previous session's numbers, as ghost text ("100×5"). */
     val ghost: String? = null,
+    /** §4.1 — the prescribed rep range, shown as a secondary target while you work. */
+    val targetRepRange: String? = null,
+    val targetRpe: Float? = null,
+    val restSeconds: Int? = null,
 )
 
 data class SessionStart(
@@ -62,12 +66,15 @@ class TrainRepository(
         repRangeHigh: Int,
         incrementKg: Float,
         startWeightKg: Float,
+        restSeconds: Int? = null,
+        targetRpe: Float? = null,
     ): RoutineItem {
         val order = (itemsFor(routineId).maxOfOrNull { it.sortOrder } ?: -1) + 1
         val item = RoutineItem(
             routineId = routineId, exerciseId = exerciseId, targetSets = targetSets,
             sortOrder = order, repRangeLow = repRangeLow, repRangeHigh = repRangeHigh,
             incrementKg = incrementKg, currentWeightKg = startWeightKg,
+            restSeconds = restSeconds, targetRpe = targetRpe,
         )
         return item.copy(id = db.trainDao().insertRoutineItem(item))
     }
@@ -97,12 +104,15 @@ class TrainRepository(
                 val lastWorking = last.filter { !it.isWarmup }
                 val incremented = lastWorking.isNotEmpty() &&
                     item.currentWeightKg > lastWorking.maxOf { it.weightKg }
+                val targetRepRange = "${item.repRangeLow}–${item.repRangeHigh}"
                 if (last.isEmpty()) {
                     repeat(item.targetSets) { i ->
                         prefill.add(
                             PrefillSet(
                                 exerciseId = item.exerciseId, routineItemId = item.id, setIndex = i,
                                 weightKg = item.currentWeightKg, reps = item.repRangeLow,
+                                targetRepRange = targetRepRange, targetRpe = item.targetRpe,
+                                restSeconds = item.restSeconds,
                             )
                         )
                     }
@@ -120,8 +130,31 @@ class TrainRepository(
                                 isWarmup = prev.isWarmup,
                                 incremented = incremented && !prev.isWarmup,
                                 ghost = "${trim(prev.weightKg)}×${prev.reps}",
+                                targetRepRange = if (prev.isWarmup) null else targetRepRange,
+                                targetRpe = if (prev.isWarmup) null else item.targetRpe,
+                                restSeconds = item.restSeconds,
                             )
                         )
+                    }
+                    // §4.1 — the prescription decides how many working sets you owe.
+                    // A short session last time must not silently shrink the plan, so
+                    // top up to targetSets using the last working set's numbers.
+                    val template = lastWorking.lastOrNull()
+                    var index = last.size
+                    repeat((item.targetSets - lastWorking.size).coerceAtLeast(0)) {
+                        prefill.add(
+                            PrefillSet(
+                                exerciseId = item.exerciseId, routineItemId = item.id, setIndex = index,
+                                weightKg = item.currentWeightKg,
+                                reps = if (incremented || template == null) item.repRangeLow else template.reps,
+                                incremented = incremented,
+                                ghost = template?.let { "${trim(it.weightKg)}×${it.reps}" },
+                                targetRepRange = targetRepRange,
+                                targetRpe = item.targetRpe,
+                                restSeconds = item.restSeconds,
+                            )
+                        )
+                        index++
                     }
                 }
             }

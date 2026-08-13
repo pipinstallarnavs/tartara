@@ -29,13 +29,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 import com.tatara.data.db.dao.EntryWithFood
+import com.tatara.data.db.entity.FatSource
 import com.tatara.data.db.entity.Food
+import com.tatara.data.db.entity.UnitType
 import com.tatara.data.food.FatPace
 import com.tatara.data.food.FatPaceState
 import com.tatara.data.food.FoodRepository
@@ -43,6 +48,7 @@ import com.tatara.data.food.LogResult
 import com.tatara.data.food.MacroMath
 import com.tatara.data.food.MacroTotals
 import com.tatara.ui.theme.LocalThemeColors
+import java.time.LocalDate
 import kotlinx.coroutines.launch
 import java.util.Locale
 
@@ -58,11 +64,17 @@ fun FoodScreen(repo: FoodRepository) {
     var candidates by remember { mutableStateOf(listOf<Food>()) }
     var pendingQuantity by remember { mutableStateOf<Float?>(null) }
     var notice by remember { mutableStateOf<String?>(null) }
+    // Holds (query, quantity) for the "Create <query>" flow — set on a no-match,
+    // or when "Add your own" is tapped instead of picking an ambiguous candidate.
+    var createPrefill by remember { mutableStateOf<Pair<String, Float?>?>(null) }
+    var showCreateFood by remember { mutableStateOf(false) }
+    var quickAddFoods by remember { mutableStateOf(listOf<Food>()) }
 
     suspend fun refresh() {
         entries = repo.entriesOn()
         totals = repo.totalsOn()
         targets = repo.latestTargets()
+        quickAddFoods = repo.recentFoods()
     }
 
     LaunchedEffect(Unit) { refresh() }
@@ -75,20 +87,40 @@ fun FoodScreen(repo: FoodRepository) {
                     input = ""
                     candidates = emptyList()
                     notice = null
+                    createPrefill = null
+                    showCreateFood = false
                     refresh()
                 }
                 is LogResult.Ambiguous -> {
                     candidates = result.candidates
                     pendingQuantity = result.quantity
                     notice = null
+                    createPrefill = result.query to result.quantity
+                    showCreateFood = false
                 }
                 is LogResult.NoMatch -> {
                     candidates = emptyList()
                     notice = "No match for \"${result.query}\"."
+                    createPrefill = result.query to result.quantity
+                    showCreateFood = false
                 }
                 LogResult.OutsideEditWindow -> notice = "Outside the edit window."
                 LogResult.EmptyInput -> Unit
             }
+        }
+    }
+
+    fun repeatYesterday() {
+        scope.launch {
+            repo.repeatDay(from = LocalDate.now().minusDays(1))
+            refresh()
+        }
+    }
+
+    fun quickAdd(food: Food) {
+        scope.launch {
+            repo.quickAdd(food)
+            refresh()
         }
     }
 
@@ -123,8 +155,10 @@ fun FoodScreen(repo: FoodRepository) {
             },
         )
 
-        if (candidates.isNotEmpty()) {
+        if (candidates.isNotEmpty() && !showCreateFood) {
             // §3.1 — inline chip row, one tap to disambiguate. Never a dialog.
+            // "Add your own" is always the last chip — an escape hatch when none
+            // of the matches are actually what was typed (e.g. plain "rice").
             LazyRow(
                 modifier = Modifier.padding(top = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -141,9 +175,20 @@ fun FoodScreen(repo: FoodRepository) {
                                     repo.addEntry(food, pendingQuantity ?: 100f)
                                     input = ""
                                     candidates = emptyList()
+                                    createPrefill = null
                                     refresh()
                                 }
                             }
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                    )
+                }
+                item {
+                    Text(
+                        text = "Add your own",
+                        color = c.cool,
+                        fontSize = 13.sp,
+                        modifier = Modifier
+                            .clickable { showCreateFood = true }
                             .padding(horizontal = 10.dp, vertical = 6.dp),
                     )
                 }
@@ -152,6 +197,58 @@ fun FoodScreen(repo: FoodRepository) {
 
         notice?.let {
             Text(it, color = c.warm, fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp))
+        }
+        createPrefill?.let { (query, quantity) ->
+            if (showCreateFood) {
+                CreateFoodForm(
+                    initialName = query,
+                    onCancel = {
+                        showCreateFood = false
+                        createPrefill = null
+                        candidates = emptyList()
+                    },
+                    onSave = { name, unitType, portionName, kcal, protein, carbs, fat ->
+                        scope.launch {
+                            val food = repo.createCustomFood(
+                                name = name, unitType = unitType, portionName = portionName,
+                                kcal = kcal, protein = protein, carbs = carbs, fat = fat,
+                                fatSource = FatSource.MIXED,
+                            )
+                            repo.addEntry(food, quantity ?: if (unitType == UnitType.PORTION) 1f else 100f)
+                            input = ""
+                            showCreateFood = false
+                            createPrefill = null
+                            candidates = emptyList()
+                            notice = null
+                            refresh()
+                        }
+                    },
+                )
+            } else if (candidates.isEmpty()) {
+                Text(
+                    "Create \"$query\"",
+                    color = c.cool,
+                    fontSize = 13.sp,
+                    modifier = Modifier.clickable { showCreateFood = true }.padding(top = 6.dp),
+                )
+            }
+        }
+
+        if (quickAddFoods.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(12.dp))
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(quickAddFoods) { food ->
+                    Text(
+                        text = food.name,
+                        color = c.primary,
+                        fontSize = 13.sp,
+                        modifier = Modifier
+                            .background(c.surface, RoundedCornerShape(2.dp))
+                            .clickable { quickAdd(food) }
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                    )
+                }
+            }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -163,13 +260,15 @@ fun FoodScreen(repo: FoodRepository) {
         Spacer(modifier = Modifier.height(8.dp))
         Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(c.hairline))
 
+        Text(
+            "Repeat yesterday",
+            color = c.cool,
+            fontSize = 12.sp,
+            modifier = Modifier.clickable { repeatYesterday() }.padding(vertical = 8.dp),
+        )
+
         if (entries.isEmpty()) {
-            Text(
-                "Nothing logged.",
-                color = c.muted,
-                fontSize = 14.sp,
-                modifier = Modifier.padding(top = 24.dp),
-            )
+            EmptyState(EmptyKind.FOOD)
         } else {
             LazyColumn(modifier = Modifier.padding(top = 8.dp)) {
                 items(entries) { e ->
@@ -177,6 +276,110 @@ fun FoodScreen(repo: FoodRepository) {
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun CreateFoodForm(
+    initialName: String,
+    onCancel: () -> Unit,
+    onSave: (
+        name: String, unitType: UnitType, portionName: String?,
+        kcal: Float, protein: Float, carbs: Float, fat: Float,
+    ) -> Unit,
+) {
+    val c = LocalThemeColors.current
+    var name by remember { mutableStateOf(initialName) }
+    var unitType by remember { mutableStateOf(UnitType.GRAM) }
+    var portionName by remember { mutableStateOf("") }
+    var kcal by remember { mutableStateOf("") }
+    var protein by remember { mutableStateOf("") }
+    var carbs by remember { mutableStateOf("") }
+    var fat by remember { mutableStateOf("") }
+
+    Column(modifier = Modifier.padding(top = 8.dp)) {
+        FormField("Name", name) { name = it }
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            listOf(UnitType.GRAM to "Per 100g", UnitType.PORTION to "Per serving").forEach { (type, label) ->
+                Text(
+                    label,
+                    color = if (unitType == type) c.primary else c.muted,
+                    fontSize = 12.sp,
+                    modifier = Modifier
+                        .background(if (unitType == type) c.surface else Color.Transparent, RoundedCornerShape(2.dp))
+                        .clickable { unitType = type }
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                )
+            }
+        }
+        if (unitType == UnitType.PORTION) {
+            FormField("Serving name (e.g. katori)", portionName) { portionName = it }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            NumberField("kcal", kcal) { kcal = it }
+            NumberField("P", protein) { protein = it }
+            NumberField("C", carbs) { carbs = it }
+            NumberField("F", fat) { fat = it }
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            Text("Cancel", color = c.muted, fontSize = 13.sp, modifier = Modifier.clickable(onClick = onCancel))
+            Text(
+                "Save",
+                color = c.cool,
+                fontSize = 13.sp,
+                modifier = Modifier.clickable {
+                    if (name.isNotBlank()) {
+                        onSave(
+                            name,
+                            unitType,
+                            portionName.takeIf { unitType == UnitType.PORTION && it.isNotBlank() },
+                            kcal.toFloatOrNull() ?: 0f, protein.toFloatOrNull() ?: 0f,
+                            carbs.toFloatOrNull() ?: 0f, fat.toFloatOrNull() ?: 0f,
+                        )
+                    }
+                },
+            )
+        }
+    }
+}
+
+@Composable
+private fun FormField(label: String, value: String, onChange: (String) -> Unit) {
+    val c = LocalThemeColors.current
+    Column(modifier = Modifier.padding(bottom = 8.dp)) {
+        Text(label, color = c.muted, fontSize = 11.sp)
+        BasicTextField(
+            value = value,
+            onValueChange = onChange,
+            singleLine = true,
+            textStyle = TextStyle(color = c.primary, fontSize = 14.sp),
+            cursorBrush = SolidColor(c.cool),
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(c.surface, RoundedCornerShape(2.dp))
+                .padding(8.dp),
+        )
+    }
+}
+
+@Composable
+private fun NumberField(label: String, value: String, onChange: (String) -> Unit) {
+    val c = LocalThemeColors.current
+    Column(modifier = Modifier.padding(bottom = 8.dp)) {
+        Text(label, color = c.muted, fontSize = 11.sp)
+        BasicTextField(
+            value = value,
+            onValueChange = onChange,
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            textStyle = TextStyle(color = c.primary, fontSize = 14.sp, fontFamily = FontFamily.Monospace),
+            cursorBrush = SolidColor(c.cool),
+            modifier = Modifier
+                .width(64.dp)
+                .background(c.surface, RoundedCornerShape(2.dp))
+                .padding(8.dp),
+        )
     }
 }
 

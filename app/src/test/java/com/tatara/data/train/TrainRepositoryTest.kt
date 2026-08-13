@@ -126,6 +126,28 @@ class TrainRepositoryTest {
     }
 
     @Test
+    fun prefillTopsUpToPrescribedSetCount() = runBlocking {
+        // §4.1 — the prescription owns the set count. A short session last time
+        // must not shrink the plan: 4 prescribed, 1 done → 4 rows next time.
+        val ex = exercise()
+        val routine = repo.createRoutine("Legs")
+        repo.addRoutineItem(routine.id, ex, 4, 5, 8, 2.5f, 80f)
+        val item = repo.itemsFor(routine.id).first()
+
+        val first = repo.startSession(routine)
+        assertEquals(4, first.prefill.size)
+        repo.confirmSet(first.session.id, ex, item.id, 0, 80f, 6)
+        repo.finishSession(first.session.id, 30)
+
+        val next = repo.startSession(routine)
+        assertEquals(4, next.prefill.size)
+        // The one real set carries its ghost; the top-ups reuse its numbers.
+        assertEquals("80×6", next.prefill.first().ghost)
+        next.prefill.forEach { assertEquals(80f, it.weightKg, 0.001f) }
+        assertEquals(listOf(6, 6, 6, 6), next.prefill.map { it.reps })
+    }
+
+    @Test
     fun emptySessionIsDiscarded() = runBlocking {
         val start = repo.startSession(null)
         assertTrue(repo.finishSession(start.session.id, 5) is FinishResult.Discarded)
