@@ -15,7 +15,7 @@ import androidx.compose.ui.graphics.Color
  * The heat ramp (ember → glow → hot) is the reward language: a cold billet at
  * rest, brightening as the day's work lands, white-hot only at a fold. Each
  * theme tunes its own ramp — Nie burns orange, Astra burns violet, Saṃskāra
- * burns amber — so the three read as different worlds, not one palette recoloured.
+ * glows living green — so the three read as different worlds.
  */
 data class ThemeColors(
     val ground: Color,
@@ -79,18 +79,18 @@ enum class AppTheme(val label: String, val motif: Motif, val colors: ThemeColors
         "Saṃskāra",
         Motif.TREE,
         ThemeColors(
-            ground = Color(0xFF100D0A),
-            surface = Color(0xFF1F1A15),
-            surfaceHigh = Color(0xFF2B2419),
-            hairline = Color(0xFF3A3128),
-            muted = Color(0xFF8B8072),
-            primary = Color(0xFFF0E6D2),
-            warm = Color(0xFFB5502F),
-            cool = Color(0xFF7B9B84),
-            ember = Color(0xFF5A3218),
-            glow = Color(0xFFC98A4B),
-            hot = Color(0xFFFFF3DE),
-            edge = Color(0xFFE6D9BE),
+            ground = Color(0xFF06120F),
+            surface = Color(0xFF0B1D18),
+            surfaceHigh = Color(0xFF122A23),
+            hairline = Color(0xFF214438),
+            muted = Color(0xFF789487),
+            primary = Color(0xFFE4F3E9),
+            warm = Color(0xFFC38658),
+            cool = Color(0xFF62D497),
+            ember = Color(0xFF0B5137),
+            glow = Color(0xFF50E09A),
+            hot = Color(0xFFF0FFF5),
+            edge = Color(0xFFA7F0C8),
         )
     ),
 }
