@@ -33,18 +33,12 @@ import kotlin.math.pow
 import kotlin.math.sin
 
 /**
- * §2.5/§7.1 — the hero. One object, two readings: the *finish* is the tier
- * (band 0–8, rough billet → finished treasure), the *heat* is today (0–1, how
- * much of the day's work has landed). Heat is the reward language — the object
- * literally cools when you are behind and runs bright when you are on pace.
- *
- * Each theme draws its own: Nie forges a katana, Astra looses a divine arrow,
- * Saṃskāra grows a tree. All three are built from real geometry (curvature,
- * taper, layered gradients, rim light) rather than a flat silhouette, because
- * this is the strongest screen in the app and it should carry the most craft.
+ * The original canvas renderer retained for Nie, Astra, and the untouched
+ * post-Ārambha Samskara tiers. New world implementations belong behind
+ * [com.tatara.ui.hero.ProgressionHero] instead of being added to this file.
  */
 @Composable
-fun Hero(motif: Motif, band: Int, heat: Float, modifier: Modifier = Modifier) {
+internal fun LegacyHero(motif: Motif, band: Int, heat: Float, modifier: Modifier = Modifier) {
     val c = LocalThemeColors.current
     val refinement = (band / 8f).coerceIn(0f, 1f)
     val target = heat.coerceIn(0f, 1f)

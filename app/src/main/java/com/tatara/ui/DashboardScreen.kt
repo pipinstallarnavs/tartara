@@ -45,14 +45,15 @@ import com.tatara.data.db.entity.TierCrossing
 import com.tatara.data.db.entity.WeeklyReview
 import com.tatara.data.food.MacroMath
 import com.tatara.data.food.MacroTotals
+import com.tatara.ui.hero.ProgressionHero
 import com.tatara.ui.theme.AppTheme
 import com.tatara.ui.theme.FoldPreferences
-import com.tatara.ui.theme.LocalMotif
 import com.tatara.ui.theme.LocalThemeColors
 import com.tatara.ui.theme.tierName
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import kotlin.math.abs
+import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 
 @Composable
@@ -121,21 +122,24 @@ fun DashboardScreen(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(start = 24.dp, end = 16.dp, top = 16.dp),
+            .padding(top = 12.dp),
     ) {
-        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+            verticalAlignment = Alignment.Top,
+        ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     theme.tierName(band),
                     color = c.primary,
-                    fontSize = 26.sp,
+                    fontSize = 31.sp,
                     fontFamily = FontFamily.Serif,
                     fontWeight = FontWeight.Light,
                 )
                 Text(
-                    "Level $level",
-                    color = c.muted,
-                    fontSize = 13.sp,
+                    "${theme.label.uppercase()}  ·  LEVEL $level",
+                    color = c.cool,
+                    fontSize = 11.sp,
                     fontFamily = FontFamily.Monospace,
                 )
                 if (nearFloor) {
@@ -151,116 +155,209 @@ fun DashboardScreen(
             )
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
-        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-            Hero(motif = LocalMotif.current, band = band, heat = fill)
-        }
-        Spacer(modifier = Modifier.height(8.dp))
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-            val next = toNextTier
-            Text(
-                buildString {
-                    append("$xp XP")
-                    if (next != null) append(" · $next to ${theme.tierName(band + 1)}")
-                },
-                color = c.muted,
-                fontSize = 11.sp,
-                fontFamily = FontFamily.Monospace,
-            )
-        }
+        Spacer(modifier = Modifier.height(6.dp))
+        ProgressionHero(
+            motif = theme.motif,
+            tier = band,
+            dailyCompletion = fill,
+        )
 
-        // §7.1 — 365-day history, ji → ha.
-        Spacer(modifier = Modifier.height(16.dp))
-        Row(
-            modifier = Modifier.horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(2.dp),
-        ) {
-            val start = today.minusDays(364)
-            (0 until 53).forEach { week ->
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    (0 until 7).forEach { d ->
-                        val date = start.plusDays((week * 7 + d).toLong())
-                        val rollup = if (date.isAfter(today)) null else rollups[date]
-                        Box(
-                            modifier = Modifier
-                                .size(4.dp)
-                                .background(
-                                    when {
-                                        rollup?.ringClosed == true -> c.primary
-                                        rollup != null && rollup.kcal > 0f -> c.hairline
-                                        else -> c.surface
-                                    },
-                                    RoundedCornerShape(1.dp),
-                                )
+        Column(modifier = Modifier.padding(horizontal = 20.dp)) {
+            TierProgress(
+                xp = xp,
+                band = band,
+                nextTierName = toNextTier?.let { theme.tierName(band + 1) },
+                xpToNextTier = toNextTier,
+            )
+
+            DailyStatus(completion = fill)
+
+            // §7.1 — the same 365-day history, now subordinate to today's state.
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                val start = today.minusDays(364)
+                (0 until 53).forEach { week ->
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        (0 until 7).forEach { d ->
+                            val date = start.plusDays((week * 7 + d).toLong())
+                            val rollup = if (date.isAfter(today)) null else rollups[date]
+                            Box(
+                                modifier = Modifier
+                                    .size(4.dp)
+                                    .background(
+                                        when {
+                                            rollup?.ringClosed == true -> c.cool
+                                            rollup != null && rollup.kcal > 0f -> c.hairline
+                                            else -> c.surface
+                                        },
+                                        RoundedCornerShape(1.dp),
+                                    )
+                            )
+                        }
+                    }
+                }
+            }
+
+            insight?.let { card ->
+                // §7.4 — one factual card per day, source line always shown.
+                Spacer(modifier = Modifier.height(22.dp))
+                Text(
+                    "DAILY RESEARCH",
+                    color = c.muted,
+                    fontSize = 10.sp,
+                    fontFamily = FontFamily.Monospace,
+                )
+                Spacer(modifier = Modifier.height(7.dp))
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(c.surface.copy(alpha = 0.66f), RoundedCornerShape(8.dp))
+                        .padding(horizontal = 13.dp, vertical = 11.dp),
+                ) {
+                    Text(card.text, color = c.primary.copy(alpha = 0.86f), fontSize = 12.sp)
+                    Spacer(modifier = Modifier.height(5.dp))
+                    Text(card.source, color = c.muted, fontSize = 9.sp)
+                }
+            }
+
+            if (reviews.isNotEmpty()) {
+                DashSection("Weekly reviews")
+                reviews.forEach { review ->
+                    val label = review.weekStart.format(DateTimeFormatter.ofPattern("d MMM"))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                scope.launch {
+                                    reviewService.openReview(review.id, today)
+                                    openContent =
+                                        if (openContent?.weekStart == review.weekStart) null
+                                        else reviewService.contentFor(review.weekStart)
+                                    refresh()
+                                }
+                            }
+                            .padding(vertical = 8.dp),
+                    ) {
+                        Text("Week of $label", color = c.primary, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                        if (review.openedAt == null) {
+                            Text("Review ready.", color = c.cool, fontSize = 12.sp)
+                        }
+                    }
+                    if (openContent?.weekStart == review.weekStart) {
+                        ReviewDetail(openContent!!)
+                    }
+                    Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(c.hairline))
+                }
+            }
+
+            if (crossings.isNotEmpty()) {
+                // §7.3 — the page that only ever grows.
+                DashSection("Tiers")
+                crossings.sortedBy { it.date }.forEach { crossing ->
+                    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                        Text(
+                            crossing.date.format(DateTimeFormatter.ofPattern("d MMM uuuu")),
+                            color = c.muted, fontSize = 12.sp, fontFamily = FontFamily.Monospace,
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            "${theme.tierName(Levels.bandFor(crossing.level))}. Level ${crossing.level} is now your floor.",
+                            color = c.primary, fontSize = 12.sp,
                         )
                     }
                 }
             }
+            Spacer(modifier = Modifier.height(24.dp))
         }
+    }
+}
 
-        insight?.let { card ->
-            // §7.4 — one factual card per day, source line always shown.
-            Spacer(modifier = Modifier.height(20.dp))
-            Column(
+@Composable
+private fun TierProgress(
+    xp: Long,
+    band: Int,
+    nextTierName: String?,
+    xpToNextTier: Long?,
+) {
+    val c = LocalThemeColors.current
+    val startXp = if (band == 0) 0L else Levels.cumulative(Levels.bandStartLevel(band))
+    val endXp = if (band >= 8) xp.coerceAtLeast(startXp + 1L)
+    else Levels.cumulative(Levels.bandStartLevel(band + 1))
+    val progress = if (band >= 8) 1f
+    else ((xp - startXp).toFloat() / (endXp - startXp).toFloat()).coerceIn(0f, 1f)
+
+    Column {
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
+            Text(
+                "$xp XP",
+                color = c.primary,
+                fontSize = 14.sp,
+                fontFamily = FontFamily.Monospace,
+                modifier = Modifier.weight(1f),
+            )
+            if (xpToNextTier != null && nextTierName != null) {
+                Text(
+                    "$xpToNextTier to $nextTierName",
+                    color = c.muted,
+                    fontSize = 10.sp,
+                    fontFamily = FontFamily.Monospace,
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(4.dp)
+                .background(c.hairline, RoundedCornerShape(2.dp)),
+        ) {
+            Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .background(c.surface, RoundedCornerShape(2.dp))
-                    .padding(12.dp),
-            ) {
-                Text(card.text, color = c.primary, fontSize = 13.sp)
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(card.source, color = c.muted, fontSize = 10.sp)
-            }
+                    .fillMaxWidth(progress)
+                    .height(4.dp)
+                    .background(c.cool, RoundedCornerShape(2.dp)),
+            )
         }
+    }
+}
 
-        if (reviews.isNotEmpty()) {
-            DashSection("Weekly reviews")
-            reviews.forEach { review ->
-                val label = review.weekStart.format(DateTimeFormatter.ofPattern("d MMM"))
-                Row(
+@Composable
+private fun DailyStatus(completion: Float) {
+    val c = LocalThemeColors.current
+    val completed = (completion.coerceIn(0f, 1f) * 3f).roundToInt()
+    Column(modifier = Modifier.padding(top = 22.dp)) {
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "TODAY",
+                color = c.primary,
+                fontSize = 11.sp,
+                fontFamily = FontFamily.Monospace,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                "$completed of 3 complete",
+                color = if (completed == 3) c.cool else c.muted,
+                fontSize = 10.sp,
+                fontFamily = FontFamily.Monospace,
+            )
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            repeat(3) { index ->
+                Box(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable {
-                            scope.launch {
-                                reviewService.openReview(review.id, today)
-                                openContent =
-                                    if (openContent?.weekStart == review.weekStart) null
-                                    else reviewService.contentFor(review.weekStart)
-                                refresh()
-                            }
-                        }
-                        .padding(vertical = 8.dp),
-                ) {
-                    Text("Week of $label", color = c.primary, fontSize = 13.sp, modifier = Modifier.weight(1f))
-                    if (review.openedAt == null) {
-                        Text("Review ready.", color = c.cool, fontSize = 12.sp)
-                    }
-                }
-                if (openContent?.weekStart == review.weekStart) {
-                    ReviewDetail(openContent!!)
-                }
-                Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(c.hairline))
+                        .weight(1f)
+                        .height(5.dp)
+                        .background(
+                            if (index < completed) c.cool else c.surfaceHigh,
+                            RoundedCornerShape(3.dp),
+                        ),
+                )
             }
         }
-
-        if (crossings.isNotEmpty()) {
-            // §7.3 — the page that only ever grows.
-            DashSection("Tiers")
-            crossings.sortedBy { it.date }.forEach { crossing ->
-                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-                    Text(
-                        crossing.date.format(DateTimeFormatter.ofPattern("d MMM uuuu")),
-                        color = c.muted, fontSize = 12.sp, fontFamily = FontFamily.Monospace,
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(
-                        "${theme.tierName(Levels.bandFor(crossing.level))}. Level ${crossing.level} is now your floor.",
-                        color = c.primary, fontSize = 12.sp,
-                    )
-                }
-            }
-        }
-        Spacer(modifier = Modifier.height(24.dp))
     }
 }
 
