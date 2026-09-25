@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.SystemBarStyle
 import com.tatara.data.dashboard.DayCloseService
 import com.tatara.data.dashboard.ReviewService
 import com.tatara.data.db.Seeder
@@ -21,7 +22,11 @@ import kotlinx.coroutines.launch
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        // Every app palette is dark, independent of the device's light/dark setting.
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+        )
         val db = TataraDatabase.build(applicationContext)
         CoroutineScope(Dispatchers.IO).launch {
             Seeder.seedIfEmpty(applicationContext, db)

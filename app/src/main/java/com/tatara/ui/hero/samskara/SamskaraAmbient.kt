@@ -11,9 +11,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.scale
 import com.tatara.ui.theme.LocalThemeColors
 
 /** Slow fog bands. The transition exists only while this world is composed. */
@@ -34,20 +34,18 @@ internal fun SamskaraFog(modifier: Modifier = Modifier) {
     Canvas(modifier = modifier) {
         fun fogBand(y: Float, width: Float, height: Float, offset: Float, alpha: Float) {
             val left = size.width * (offset + drift) - width * 0.5f
-            drawOval(
-                brush = Brush.horizontalGradient(
-                    colors = listOf(
-                        Color.Transparent,
-                        colors.edge.copy(alpha = alpha),
-                        colors.muted.copy(alpha = alpha * 0.45f),
-                        Color.Transparent,
+            val center = Offset(left + width / 2f, y + height / 2f)
+            scale(1f, height / width, center) {
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        listOf(colors.edge.copy(alpha = alpha), Color.Transparent),
+                        center = center,
+                        radius = width / 2f,
                     ),
-                    startX = left,
-                    endX = left + width,
-                ),
-                topLeft = Offset(left, y),
-                size = Size(width, height),
-            )
+                    radius = width / 2f,
+                    center = center,
+                )
+            }
         }
         fogBand(size.height * 0.46f, size.width * 0.92f, size.height * 0.10f, 0.30f, 0.055f)
         fogBand(size.height * 0.65f, size.width * 1.12f, size.height * 0.13f, 0.72f, 0.040f)
@@ -64,9 +62,9 @@ internal fun SamskaraGlow(
 ) {
     val colors = LocalThemeColors.current
     Canvas(modifier = modifier) {
-        val center = Offset(size.width * 0.5f, size.height * 0.67f)
-        val radius = size.minDimension * 0.47f
-        val strength = (0.075f + dailyCompletion * 0.075f) * breath
+        val center = Offset(size.width * 0.5f, size.height * 0.62f)
+        val radius = size.minDimension * 0.35f
+        val strength = (0.17f + dailyCompletion * 0.10f) * breath
         drawCircle(
             brush = Brush.radialGradient(
                 colors = listOf(
