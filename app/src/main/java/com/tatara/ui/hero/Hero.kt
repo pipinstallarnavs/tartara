@@ -30,7 +30,7 @@ fun ProgressionHero(
             dailyCompletion = dailyCompletion,
             modifier = modifier
                 .fillMaxWidth()
-                .height(392.dp),
+                .height(480.dp),
         )
 
         Motif.BLADE,
