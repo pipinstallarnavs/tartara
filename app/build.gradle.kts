@@ -14,8 +14,8 @@ android {
         applicationId = "com.tatara"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "0.1.2"
+        versionCode = 3
+        versionName = "0.1.3"
     }
 
     // §0 — keystore lives only in CI secrets (KEYSTORE_B64 etc.), decoded to a
