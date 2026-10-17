@@ -71,6 +71,52 @@ class TrainRepositoryTest {
     }
 
     @Test
+    fun focusedEditorSaveCreatesAndExtendsRoutineWithoutRewritingExistingItems() = runBlocking {
+        val squat = exercise()
+        val bench = exercise("Bench Press", "Chest")
+
+        val routine = repo.saveRoutine(
+            existing = null,
+            name = "  Full Body  ",
+            addedItems = listOf(
+                RoutinePrescription(
+                    exerciseId = squat,
+                    targetSets = 3,
+                    repRangeLow = 5,
+                    repRangeHigh = 8,
+                    incrementKg = 2.5f,
+                    startWeightKg = 80f,
+                    restSeconds = 120,
+                    targetRpe = 8f,
+                )
+            ),
+        )
+        val original = repo.itemsFor(routine.id).single()
+        assertEquals("Full Body", routine.name)
+        assertEquals(80f, original.currentWeightKg, 0.001f)
+
+        val renamed = repo.saveRoutine(
+            existing = routine,
+            name = "Strength",
+            addedItems = listOf(
+                RoutinePrescription(
+                    exerciseId = bench,
+                    targetSets = 4,
+                    repRangeLow = 8,
+                    repRangeHigh = 12,
+                    incrementKg = 1.25f,
+                    startWeightKg = 50f,
+                )
+            ),
+        )
+        val savedItems = repo.itemsFor(routine.id)
+        assertEquals("Strength", renamed.name)
+        assertEquals(original, savedItems.first())
+        assertEquals(listOf(0, 1), savedItems.map { it.sortOrder })
+        assertEquals(listOf(squat, bench), savedItems.map { it.exerciseId })
+    }
+
+    @Test
     fun doubleProgressionIncrementsAndPrefillsWithDot() = runBlocking {
         val ex = exercise()
         val routine = repo.createRoutine("Legs")

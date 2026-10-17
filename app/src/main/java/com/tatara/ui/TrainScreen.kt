@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
@@ -19,7 +21,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -36,15 +37,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.tatara.data.db.entity.Exercise
 import com.tatara.data.db.entity.Routine
+import com.tatara.data.db.entity.RoutineItem
 import com.tatara.data.db.entity.Session
-import com.tatara.data.train.FinishResult
-import com.tatara.data.train.PrefillSet
 import com.tatara.data.train.Progression
+import com.tatara.data.train.RoutinePrescription
 import com.tatara.data.train.TrainRepository
 import com.tatara.ui.theme.LocalThemeColors
 import java.time.format.DateTimeFormatter
@@ -52,6 +53,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 private const val REST_SECONDS = 120
+private val SHORT_DATE_FORMAT = DateTimeFormatter.ofPattern("d MMM")
+private val REP_RANGE_OPTIONS: List<Pair<Int, Int>?> =
+    listOf(5 to 8, 8 to 12, 12 to 15, null)
 
 private data class ActiveSet(
     val exerciseId: Long,
@@ -116,12 +120,18 @@ private fun TrainHome(
     var history by remember { mutableStateOf(listOf<Session>()) }
     var stalls by remember { mutableStateOf(listOf<Exercise>()) }
     var volume by remember { mutableStateOf(mapOf<String, Int>()) }
-    var newRoutineName by remember { mutableStateOf("") }
-    var builderFor by remember { mutableStateOf<Long?>(null) }
+    var routineItems by remember { mutableStateOf<Map<Long, List<String>>>(emptyMap()) }
+    var creatingRoutine by remember { mutableStateOf(false) }
+    var editorRoutine by remember { mutableStateOf<Routine?>(null) }
 
     suspend fun refresh() {
+        val loadedRoutines = repo.routines()
+        val exerciseNames = repo.exercises().associate { it.id to it.name }
+        routines = loadedRoutines
+        routineItems = loadedRoutines.associate { routine ->
+            routine.id to repo.itemsFor(routine.id).map { exerciseNames[it.exerciseId] ?: "Unknown exercise" }
+        }
         next = repo.nextRoutine()
-        routines = repo.routines()
         history = repo.history().take(10)
         stalls = repo.stallFlags()
         volume = repo.weeklySetsByMuscleGroup()
@@ -149,34 +159,45 @@ private fun TrainHome(
         }
     }
 
+    if (creatingRoutine || editorRoutine != null) {
+        RoutineEditor(
+            repo = repo,
+            initialRoutine = editorRoutine,
+            onCancel = {
+                creatingRoutine = false
+                editorRoutine = null
+            },
+            onSave = { name, addedItems ->
+                scope.launch {
+                    repo.saveRoutine(editorRoutine, name, addedItems)
+                    creatingRoutine = false
+                    editorRoutine = null
+                    refresh()
+                }
+            },
+        )
+        return
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(start = 24.dp, end = 16.dp, top = 16.dp),
+            .padding(horizontal = TataraSpacing.ScreenHorizontal, vertical = TataraSpacing.Standard),
     ) {
         // §4.1 — the default state is one large button: the next routine in the cycle.
         next?.let { routine ->
-            Text(
-                text = routine.name,
-                color = c.ground,
-                fontSize = 18.sp,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(c.cool, RoundedCornerShape(2.dp))
-                    .clickable { start(routine) }
-                    .padding(vertical = 18.dp, horizontal = 16.dp),
+            TataraPrimaryButton(
+                label = "Start ${routine.name}",
+                onClick = { start(routine) },
+                modifier = Modifier.fillMaxWidth(),
             )
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(TataraSpacing.Tight))
         }
-        Text(
-            "Freestyle",
-            color = c.primary,
-            fontSize = 14.sp,
-            modifier = Modifier
-                .background(c.surface, RoundedCornerShape(2.dp))
-                .clickable { start(null) }
-                .padding(vertical = 10.dp, horizontal = 16.dp),
+        TataraSecondaryButton(
+            label = "Freestyle",
+            onClick = { start(null) },
+            modifier = Modifier.fillMaxWidth(),
         )
 
         stalls.forEach {
@@ -184,75 +205,65 @@ private fun TrainHome(
                 "${it.name} e1RM flat for 3 sessions.",
                 color = c.warm,
                 fontSize = 12.sp,
-                modifier = Modifier.padding(top = 8.dp),
+                modifier = Modifier.padding(top = TataraSpacing.Tight),
             )
         }
 
         if (volume.isNotEmpty()) {
-            TrainSection("This week, working sets")
+            TataraSectionHeader("This week, working sets")
             volume.entries.sortedByDescending { it.value }.forEach { (group, sets) ->
-                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+                Row(modifier = Modifier.fillMaxWidth().padding(vertical = TataraSpacing.Micro)) {
                     Text(group, color = c.muted, fontSize = 12.sp, modifier = Modifier.weight(1f))
                     Text("$sets", color = c.primary, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
                 }
             }
         }
 
-        TrainSection("Routines")
-        if (routines.isEmpty()) EmptyState(EmptyKind.ROUTINES)
-        routines.forEach { routine ->
-            RoutineRow(repo, routine, expanded = builderFor == routine.id) {
-                builderFor = if (builderFor == routine.id) null else routine.id
-            }
-        }
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
-            BasicTextField(
-                value = newRoutineName,
-                onValueChange = { newRoutineName = it },
-                singleLine = true,
-                textStyle = TextStyle(color = c.primary, fontSize = 13.sp),
-                cursorBrush = SolidColor(c.cool),
-                decorationBox = { inner ->
-                    Box(
-                        modifier = Modifier
-                            .width(160.dp)
-                            .background(c.surface, RoundedCornerShape(2.dp))
-                            .padding(8.dp),
-                    ) {
-                        if (newRoutineName.isEmpty()) Text("New routine", color = c.muted, fontSize = 13.sp)
-                        inner()
-                    }
-                },
+        TataraSectionHeader("Routines")
+        if (routines.isEmpty()) {
+            TataraEmptyState(
+                title = "No routines yet",
+                message = "Create a repeatable training pattern or begin without one.",
+                primaryActionLabel = "Create routine",
+                onPrimaryAction = { creatingRoutine = true },
+                secondaryActionLabel = "Freestyle",
+                onSecondaryAction = { start(null) },
             )
-            Text(
-                "Add",
-                color = c.cool,
-                fontSize = 13.sp,
-                modifier = Modifier
-                    .clickable {
-                        if (newRoutineName.isNotBlank()) scope.launch {
-                            repo.createRoutine(newRoutineName)
-                            newRoutineName = ""
-                            refresh()
-                        }
-                    }
-                    .padding(8.dp),
+        } else {
+            routines.forEach { routine ->
+                RoutineSummaryRow(
+                    routine = routine,
+                    exerciseNames = routineItems[routine.id].orEmpty(),
+                    isNext = routine.id == next?.id,
+                    onStart = { start(routine) },
+                    onEdit = { editorRoutine = routine },
+                )
+            }
+            Spacer(modifier = Modifier.height(TataraSpacing.Tight))
+            TataraSecondaryButton(
+                label = "Create routine",
+                onClick = { creatingRoutine = true },
+                modifier = Modifier.fillMaxWidth(),
             )
         }
 
         if (history.isNotEmpty()) {
-            TrainSection("History")
+            TataraSectionHeader("History")
             val names = routines.associate { it.id to it.name }
             history.forEach { session ->
-                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                Row(modifier = Modifier.fillMaxWidth().padding(vertical = TataraSpacing.Micro)) {
                     Text(
-                        session.date.format(DateTimeFormatter.ofPattern("d MMM")),
-                        color = c.muted, fontSize = 12.sp, fontFamily = FontFamily.Monospace,
+                        session.date.format(SHORT_DATE_FORMAT),
+                        color = c.muted,
+                        fontSize = 12.sp,
+                        fontFamily = FontFamily.Monospace,
                     )
-                    Spacer(modifier = Modifier.width(12.dp))
+                    Spacer(modifier = Modifier.width(TataraSpacing.Control))
                     Text(
                         names[session.routineId] ?: "Freestyle",
-                        color = c.primary, fontSize = 12.sp, modifier = Modifier.weight(1f),
+                        color = c.primary,
+                        fontSize = 12.sp,
+                        modifier = Modifier.weight(1f),
                     )
                     session.durationMin?.let {
                         Text("${it}m", color = c.muted, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
@@ -260,112 +271,268 @@ private fun TrainHome(
                 }
             }
         }
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(TataraSpacing.Group))
     }
 }
 
-@Composable
-private fun TrainSection(title: String) {
-    val c = LocalThemeColors.current
-    Spacer(modifier = Modifier.height(20.dp))
-    Text(title, color = c.muted, fontSize = 12.sp)
-    Spacer(modifier = Modifier.height(6.dp))
-    Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(c.hairline))
-    Spacer(modifier = Modifier.height(4.dp))
-}
+
+
+private data class PendingRoutineItem(
+    val exerciseName: String,
+    val prescription: RoutinePrescription,
+)
+
+private data class RoutineItemSummary(
+    val exerciseName: String,
+    val detail: String,
+)
 
 @Composable
-private fun RoutineRow(repo: TrainRepository, routine: Routine, expanded: Boolean, onToggle: () -> Unit) {
+private fun RoutineSummaryRow(
+    routine: Routine,
+    exerciseNames: List<String>,
+    isNext: Boolean,
+    onStart: () -> Unit,
+    onEdit: () -> Unit,
+) {
     val c = LocalThemeColors.current
-    val scope = rememberCoroutineScope()
-    var items by remember(routine.id, expanded) { mutableStateOf(listOf<Pair<String, String>>()) }
-    var search by remember { mutableStateOf("") }
-    var matches by remember { mutableStateOf(listOf<Exercise>()) }
-    // §4.1 — tapping a match doesn't add it yet; it opens the setup form below.
-    var configuring by remember { mutableStateOf<Exercise?>(null) }
-
-    suspend fun refreshItems() {
-        val exercises = repo.exercises().associateBy { it.id }
-        items = repo.itemsFor(routine.id).map { item ->
-            (exercises[item.exerciseId]?.name ?: "?") to
-                "${item.targetSets}×${item.repRangeLow}–${item.repRangeHigh} @ ${trimF(item.currentWeightKg)}kg"
-        }
-    }
-
-    LaunchedEffect(routine.id, expanded) { if (expanded) refreshItems() }
-    LaunchedEffect(search) {
-        matches = if (search.length < 2) emptyList()
-        else repo.exercises().filter { it.name.contains(search, ignoreCase = true) }.take(5)
-    }
-
-    Column {
-        Text(
-            routine.name,
-            color = c.primary,
-            fontSize = 14.sp,
-            modifier = Modifier.fillMaxWidth().clickable(onClick = onToggle).padding(vertical = 8.dp),
-        )
-        if (expanded) {
-            items.forEach { (name, detail) ->
-                Row(modifier = Modifier.padding(start = 12.dp, bottom = 2.dp)) {
-                    Text(name, color = c.muted, fontSize = 12.sp, modifier = Modifier.weight(1f))
-                    Text(detail, color = c.muted, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
-                }
-            }
-            configuring?.let { exercise ->
-                RoutineItemSetupForm(
-                    exerciseName = exercise.name,
-                    onCancel = { configuring = null },
-                    onSave = { sets, repLow, repHigh, startWeight, increment, restSeconds, rpe ->
-                        scope.launch {
-                            repo.addRoutineItem(
-                                routine.id, exercise.id, sets, repLow, repHigh,
-                                increment, startWeight, restSeconds, rpe,
-                            )
-                            configuring = null
-                            search = ""
-                            refreshItems()
-                        }
-                    },
-                )
-            } ?: run {
-                BasicTextField(
-                    value = search,
-                    onValueChange = { search = it },
-                    singleLine = true,
-                    textStyle = TextStyle(color = c.primary, fontSize = 13.sp),
-                    cursorBrush = SolidColor(c.cool),
-                    decorationBox = { inner ->
-                        Box(
-                            modifier = Modifier
-                                .padding(start = 12.dp, top = 4.dp)
-                                .fillMaxWidth()
-                                .background(c.surface, RoundedCornerShape(2.dp))
-                                .padding(8.dp),
-                        ) {
-                            if (search.isEmpty()) Text("Add exercise", color = c.muted, fontSize = 13.sp)
-                            inner()
-                        }
-                    },
-                )
-                matches.forEach { exercise ->
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 64.dp)
+            .clickable(onClick = onStart)
+            .padding(vertical = TataraSpacing.Tight),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(routine.name, color = c.primary, fontSize = TataraType.Body)
+                if (isNext) {
+                    Spacer(modifier = Modifier.width(TataraSpacing.Tight))
                     Text(
-                        exercise.name,
+                        "NEXT",
                         color = c.cool,
-                        fontSize = 13.sp,
-                        modifier = Modifier
-                            .padding(start = 12.dp)
-                            .clickable { configuring = exercise }
-                            .padding(vertical = 6.dp),
+                        fontSize = 10.sp,
+                        fontFamily = FontFamily.Monospace,
                     )
                 }
             }
+            val summary = if (exerciseNames.isEmpty()) {
+                "No exercises configured"
+            } else {
+                "${exerciseNames.size} exercise${if (exerciseNames.size == 1) "" else "s"} · " +
+                    exerciseNames.take(3).joinToString(" · ")
+            }
+            Text(
+                summary,
+                color = c.muted,
+                fontSize = 11.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
-        Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(c.hairline))
+        TataraGhostAction(label = "Edit", onClick = onEdit)
+    }
+    TataraDivider()
+}
+
+@Composable
+private fun RoutineEditor(
+    repo: TrainRepository,
+    initialRoutine: Routine?,
+    onCancel: () -> Unit,
+    onSave: (String, List<RoutinePrescription>) -> Unit,
+) {
+    val c = LocalThemeColors.current
+    var name by remember(initialRoutine?.id) { mutableStateOf(initialRoutine?.name.orEmpty()) }
+    var exercises by remember { mutableStateOf(emptyList<Exercise>()) }
+    var existingItems by remember(initialRoutine?.id) { mutableStateOf(emptyList<RoutineItemSummary>()) }
+    var pendingItems by remember(initialRoutine?.id) { mutableStateOf(emptyList<PendingRoutineItem>()) }
+    var search by remember { mutableStateOf("") }
+    var matches by remember { mutableStateOf(emptyList<Exercise>()) }
+    var configuring by remember { mutableStateOf<Exercise?>(null) }
+    var saving by remember { mutableStateOf(false) }
+
+    LaunchedEffect(initialRoutine?.id) {
+        val loadedExercises = repo.exercises()
+        val names = loadedExercises.associate { it.id to it.name }
+        exercises = loadedExercises
+        existingItems = initialRoutine?.let { routine ->
+            repo.itemsFor(routine.id).map { item ->
+                RoutineItemSummary(
+                    exerciseName = names[item.exerciseId] ?: "Unknown exercise",
+                    detail = item.prescriptionDetail(),
+                )
+            }
+        }.orEmpty()
+    }
+    LaunchedEffect(search, exercises) {
+        matches = if (search.length < 2) {
+            emptyList()
+        } else {
+            exercises.filter { it.name.contains(search, ignoreCase = true) }.take(6)
+        }
+    }
+
+    val canSave = name.isNotBlank() &&
+        (initialRoutine != null || existingItems.isNotEmpty() || pendingItems.isNotEmpty())
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .imePadding()
+            .padding(horizontal = TataraSpacing.ScreenHorizontal, vertical = TataraSpacing.Standard),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                if (initialRoutine == null) "Create routine" else "Edit routine",
+                color = c.primary,
+                fontSize = 24.sp,
+                fontFamily = FontFamily.Serif,
+                modifier = Modifier.weight(1f),
+            )
+            TataraGhostAction(label = "Cancel", onClick = onCancel, enabled = !saving)
+        }
+        Spacer(modifier = Modifier.height(TataraSpacing.Standard))
+        TataraTextField(
+            value = name,
+            onValueChange = { name = it },
+            label = "Routine name",
+            placeholder = "Morning foundation",
+            enabled = !saving,
+        )
+
+        TataraSectionHeader("Exercises")
+        if (existingItems.isEmpty() && pendingItems.isEmpty()) {
+            Text(
+                "Add at least one exercise before saving.",
+                color = c.muted,
+                fontSize = 12.sp,
+            )
+        }
+        existingItems.forEach { item ->
+            RoutinePrescriptionRow(
+                exerciseName = item.exerciseName,
+                detail = item.detail,
+            )
+        }
+        pendingItems.forEachIndexed { index, item ->
+            RoutinePrescriptionRow(
+                exerciseName = item.exerciseName,
+                detail = item.prescription.prescriptionDetail(),
+                pending = true,
+                onRemove = {
+                    pendingItems = pendingItems.filterIndexed { itemIndex, _ -> itemIndex != index }
+                },
+            )
+        }
+
+        configuring?.let { exercise ->
+            Spacer(modifier = Modifier.height(TataraSpacing.Control))
+            RoutineItemSetupForm(
+                exerciseName = exercise.name,
+                onCancel = { configuring = null },
+                onSave = { sets, repLow, repHigh, startWeight, increment, restSeconds, rpe ->
+                    pendingItems = pendingItems + PendingRoutineItem(
+                        exerciseName = exercise.name,
+                        prescription = RoutinePrescription(
+                            exerciseId = exercise.id,
+                            targetSets = sets,
+                            repRangeLow = repLow,
+                            repRangeHigh = repHigh,
+                            incrementKg = increment,
+                            startWeightKg = startWeight,
+                            restSeconds = restSeconds,
+                            targetRpe = rpe,
+                        ),
+                    )
+                    configuring = null
+                    search = ""
+                },
+            )
+        } ?: run {
+            Spacer(modifier = Modifier.height(TataraSpacing.Control))
+            TataraTextField(
+                value = search,
+                onValueChange = { search = it },
+                label = "Add exercise",
+                placeholder = "Search exercises",
+                enabled = !saving,
+            )
+            matches.forEach { exercise ->
+                TataraChoiceChip(
+                    label = exercise.name,
+                    selected = false,
+                    onClick = { configuring = exercise },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = TataraSpacing.Tight),
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(TataraSpacing.Group))
+        TataraPrimaryButton(
+            label = "Save routine",
+            onClick = {
+                saving = true
+                onSave(name, pendingItems.map { it.prescription })
+            },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = canSave && !saving,
+            loading = saving,
+        )
+        Spacer(modifier = Modifier.height(TataraSpacing.Group))
     }
 }
 
-private val REP_PRESETS = listOf(5 to 8, 8 to 12, 12 to 15)
+@Composable
+private fun RoutinePrescriptionRow(
+    exerciseName: String,
+    detail: String,
+    pending: Boolean = false,
+    onRemove: (() -> Unit)? = null,
+) {
+    val c = LocalThemeColors.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = TataraSpacing.Tight),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(exerciseName, color = c.primary, fontSize = TataraType.Body)
+                if (pending) {
+                    Spacer(modifier = Modifier.width(TataraSpacing.Tight))
+                    Text("NEW", color = c.cool, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                }
+            }
+            Text(detail, color = c.muted, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+        }
+        if (onRemove != null) {
+            TataraGhostAction(label = "Remove", onClick = onRemove)
+        }
+    }
+    TataraDivider()
+}
+
+private fun RoutineItem.prescriptionDetail(): String = buildString {
+    append("$targetSets×$repRangeLow–$repRangeHigh · ${trimF(currentWeightKg)}kg")
+    append(" · +${trimF(incrementKg)}kg")
+    restSeconds?.let { append(" · ${it}s") }
+    targetRpe?.let { append(" · RPE ${trimF(it)}") }
+}
+
+private fun RoutinePrescription.prescriptionDetail(): String = buildString {
+    append("$targetSets×$repRangeLow–$repRangeHigh · ${trimF(startWeightKg)}kg")
+    append(" · +${trimF(incrementKg)}kg")
+    restSeconds?.let { append(" · ${it}s") }
+    targetRpe?.let { append(" · RPE ${trimF(it)}") }
+}
+
+private val REP_PRESETS = REP_RANGE_OPTIONS.filterNotNull()
 
 /**
  * §4.1 — the prescription form: sets as a stepper (never a text field), rep range
@@ -382,7 +549,6 @@ private fun RoutineItemSetupForm(
         increment: Float, restSeconds: Int?, rpe: Float?,
     ) -> Unit,
 ) {
-    val c = LocalThemeColors.current
     var sets by remember { mutableIntStateOf(3) }
     var preset by remember { mutableStateOf<Pair<Int, Int>?>(REP_PRESETS[1]) }
     var customLow by remember { mutableStateOf("") }
@@ -391,123 +557,88 @@ private fun RoutineItemSetupForm(
     var increment by remember { mutableStateOf("2.5") }
     var restSeconds by remember { mutableStateOf("") }
     var rpe by remember { mutableStateOf("") }
+    val ranges = REP_RANGE_OPTIONS
+    val rangeValid = preset != null || (customLow.toIntOrNull() != null && customHigh.toIntOrNull() != null)
+    val canSave = startWeight.toFloatOrNull() != null && rangeValid
 
-    Column(modifier = Modifier.padding(start = 12.dp, top = 8.dp, bottom = 4.dp)) {
-        Text(exerciseName, color = c.primary, fontSize = 13.sp)
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Text("Sets", color = c.muted, fontSize = 11.sp)
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            StepButton("−") { if (sets > 1) sets-- }
-            Text("$sets", color = c.primary, fontSize = 15.sp, fontFamily = FontFamily.Monospace)
-            StepButton("+") { sets++ }
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-        Text("Rep range", color = c.muted, fontSize = 11.sp)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            REP_PRESETS.forEach { range ->
-                Text(
-                    "${range.first}–${range.second}",
-                    color = if (preset == range) c.primary else c.muted,
-                    fontSize = 12.sp,
-                    modifier = Modifier
-                        .background(if (preset == range) c.surface else Color.Transparent, RoundedCornerShape(2.dp))
-                        .clickable { preset = range }
-                        .padding(horizontal = 8.dp, vertical = 4.dp),
-                )
+    Column(modifier = Modifier.padding(top = TataraSpacing.Tight)) {
+        Text(exerciseName, color = LocalThemeColors.current.primary, fontSize = TataraType.Body)
+        Spacer(modifier = Modifier.height(TataraSpacing.Control))
+        TataraStepper(
+            value = sets,
+            onDecrease = { if (sets > 1) sets-- },
+            onIncrease = { sets++ },
+            label = "Working sets",
+            decreaseEnabled = sets > 1,
+        )
+        Spacer(modifier = Modifier.height(TataraSpacing.Control))
+        TataraSegmentedControl(
+            items = ranges,
+            selected = preset,
+            onSelected = { preset = it },
+            label = "Rep range",
+            itemLabel = { range -> range?.let { "${it.first}–${it.second}" } ?: "Custom" },
+        )
+        if (preset == null) {
+            Spacer(modifier = Modifier.height(TataraSpacing.Control))
+            Row(horizontalArrangement = Arrangement.spacedBy(TataraSpacing.Tight)) {
+                TataraNumberField(customLow, { customLow = it }, "Minimum reps", Modifier.weight(1f))
+                TataraNumberField(customHigh, { customHigh = it }, "Maximum reps", Modifier.weight(1f))
             }
-            Text(
-                "Custom",
-                color = if (preset == null) c.primary else c.muted,
-                fontSize = 12.sp,
-                modifier = Modifier
-                    .background(if (preset == null) c.surface else Color.Transparent, RoundedCornerShape(2.dp))
-                    .clickable { preset = null }
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
+        }
+        Spacer(modifier = Modifier.height(TataraSpacing.Control))
+        Row(horizontalArrangement = Arrangement.spacedBy(TataraSpacing.Tight)) {
+            TataraNumberField(
+                startWeight,
+                { startWeight = it },
+                "Starting weight",
+                Modifier.weight(1f),
+                suffix = "kg",
+            )
+            TataraNumberField(
+                increment,
+                { increment = it },
+                "Increment",
+                Modifier.weight(1f),
+                suffix = "kg",
             )
         }
-        if (preset == null) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Spacer(modifier = Modifier.height(4.dp))
-                SmallNumberField(customLow) { customLow = it }
-                Text("–", color = c.muted, fontSize = 13.sp)
-                SmallNumberField(customHigh) { customHigh = it }
-            }
+        Spacer(modifier = Modifier.height(TataraSpacing.Control))
+        Row(horizontalArrangement = Arrangement.spacedBy(TataraSpacing.Tight)) {
+            TataraNumberField(
+                restSeconds,
+                { restSeconds = it },
+                "Rest",
+                Modifier.weight(1f),
+                suffix = "sec",
+            )
+            TataraNumberField(
+                rpe,
+                { rpe = it },
+                "Target RPE",
+                Modifier.weight(1f),
+                placeholder = "optional",
+            )
         }
-
-        Spacer(modifier = Modifier.height(8.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            Column {
-                Text("Starting weight (kg)", color = c.muted, fontSize = 11.sp)
-                SmallNumberField(startWeight, width = 72.dp) { startWeight = it }
-            }
-            Column {
-                Text("Increment (kg)", color = c.muted, fontSize = 11.sp)
-                SmallNumberField(increment, width = 64.dp) { increment = it }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            Column {
-                Text("Rest (sec, optional)", color = c.muted, fontSize = 11.sp)
-                SmallNumberField(restSeconds, width = 64.dp) { restSeconds = it }
-            }
-            Column {
-                Text("Target RPE (optional)", color = c.muted, fontSize = 11.sp)
-                SmallNumberField(rpe, width = 56.dp) { rpe = it }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(10.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            Text("Cancel", color = c.muted, fontSize = 13.sp, modifier = Modifier.clickable(onClick = onCancel))
-            Text(
-                "Add",
-                color = c.cool,
-                fontSize = 13.sp,
-                modifier = Modifier.clickable {
-                    val weight = startWeight.toFloatOrNull() ?: return@clickable
+        Spacer(modifier = Modifier.height(TataraSpacing.Control))
+        Row(horizontalArrangement = Arrangement.spacedBy(TataraSpacing.Tight)) {
+            TataraSecondaryButton("Cancel", onCancel, Modifier.weight(1f))
+            TataraPrimaryButton(
+                label = "Add exercise",
+                onClick = save@{
+                    val weight = startWeight.toFloatOrNull() ?: return@save
                     val inc = increment.toFloatOrNull() ?: 2.5f
-                    val (low, high) = preset ?: ((customLow.toIntOrNull() ?: return@clickable) to
-                        (customHigh.toIntOrNull() ?: return@clickable))
+                    val (low, high) = preset ?: (
+                        (customLow.toIntOrNull() ?: return@save) to
+                            (customHigh.toIntOrNull() ?: return@save)
+                        )
                     onSave(sets, low, high, weight, inc, restSeconds.toIntOrNull(), rpe.toFloatOrNull())
                 },
+                modifier = Modifier.weight(1f),
+                enabled = canSave,
             )
         }
     }
-}
-
-@Composable
-private fun StepButton(label: String, onClick: () -> Unit) {
-    val c = LocalThemeColors.current
-    Text(
-        label,
-        color = c.primary,
-        fontSize = 15.sp,
-        modifier = Modifier
-            .background(c.surface, RoundedCornerShape(2.dp))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 4.dp),
-    )
-}
-
-@Composable
-private fun SmallNumberField(value: String, width: androidx.compose.ui.unit.Dp = 48.dp, onChange: (String) -> Unit) {
-    val c = LocalThemeColors.current
-    BasicTextField(
-        value = value,
-        onValueChange = onChange,
-        singleLine = true,
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-        textStyle = TextStyle(color = c.primary, fontSize = 14.sp, fontFamily = FontFamily.Monospace),
-        cursorBrush = SolidColor(c.cool),
-        modifier = Modifier
-            .width(width)
-            .background(c.surface, RoundedCornerShape(2.dp))
-            .padding(6.dp),
-    )
 }
 
 @Composable
@@ -556,7 +687,11 @@ private fun ActiveSession(
         }
     }
 
-    Column(modifier = Modifier.fillMaxSize().padding(start = 24.dp, end = 16.dp, top = 16.dp)) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = TataraSpacing.ScreenHorizontal, vertical = TataraSpacing.Standard)
+    ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(routineName ?: "Freestyle", color = c.primary, fontSize = 20.sp, modifier = Modifier.weight(1f))
             if (restLeft > 0) {
@@ -568,11 +703,9 @@ private fun ActiveSession(
                     modifier = Modifier.clickable { restLeft = 0 }.padding(8.dp),
                 )
             }
-            Text(
-                "Finish",
-                color = c.cool,
-                fontSize = 14.sp,
-                modifier = Modifier.clickable(onClick = onFinish).padding(8.dp),
+            TataraPrimaryButton(
+                label = "Finish",
+                onClick = onFinish,
             )
         }
 
@@ -619,24 +752,14 @@ private fun ActiveSession(
                 }
             }
             item(key = "add-exercise") {
-                BasicTextField(
+                TataraTextField(
                     value = search,
                     onValueChange = { search = it },
-                    singleLine = true,
-                    textStyle = TextStyle(color = c.primary, fontSize = 13.sp),
-                    cursorBrush = SolidColor(c.cool),
-                    decorationBox = { inner ->
-                        Box(
-                            modifier = Modifier
-                                .padding(top = 16.dp)
-                                .fillMaxWidth()
-                                .background(c.surface, RoundedCornerShape(2.dp))
-                                .padding(10.dp),
-                        ) {
-                            if (search.isEmpty()) Text("Add exercise", color = c.muted, fontSize = 13.sp)
-                            inner()
-                        }
-                    },
+                    label = "Add exercise",
+                    placeholder = "Search exercises",
+                    modifier = Modifier
+                        .padding(top = TataraSpacing.Standard)
+                        .fillMaxWidth(),
                 )
                 matches.forEach { exercise ->
                     Text(

@@ -1,22 +1,15 @@
 package com.tatara.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.text.selection.LocalTextSelectionColors
 import androidx.compose.foundation.text.selection.TextSelectionColors
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -24,12 +17,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.tatara.data.db.TataraDatabase
 import com.tatara.data.food.FoodRepository
 import com.tatara.data.habit.HabitRepository
@@ -41,8 +30,12 @@ import com.tatara.ui.theme.LocalThemeColors
 import com.tatara.ui.theme.ThemePreferences
 
 /** §1 — five destinations, no sixth. Settings is an overlay, not a tab. */
-private enum class Tab(val label: String) {
-    DASHBOARD("Dashboard"), FOOD("Food"), TRAIN("Train"), HABITS("Habits"), SLEEP("Sleep"),
+private enum class Tab(val label: String, val icon: TataraNavIcon) {
+    DASHBOARD("Dashboard", TataraNavIcon.DASHBOARD),
+    FOOD("Food", TataraNavIcon.FOOD),
+    TRAIN("Train", TataraNavIcon.TRAIN),
+    HABITS("Habits", TataraNavIcon.HABITS),
+    SLEEP("Sleep", TataraNavIcon.SLEEP),
 }
 
 @Composable
@@ -122,10 +115,16 @@ fun TataraApp(db: TataraDatabase) {
                     }
                 }
             }
-            BottomNav(current = tab, onSelect = {
-                tab = it
-                showSettings = false
-            })
+            TataraBottomNavigation(
+                items = Tab.entries,
+                selected = tab,
+                onSelected = {
+                    tab = it
+                    showSettings = false
+                },
+                label = { it.label },
+                icon = { it.icon },
+            )
         }
         foldTier?.let { tier ->
             FoldOverlay(tierName = tier, onDone = { foldTier = null })
@@ -134,36 +133,3 @@ fun TataraApp(db: TataraDatabase) {
         }
     }
 }
-
-@Composable
-private fun BottomNav(current: Tab, onSelect: (Tab) -> Unit) {
-    val c = LocalThemeColors.current
-    Column {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(1.dp)
-                .background(c.hairline)
-        )
-        Row(modifier = Modifier.fillMaxWidth().background(c.ground)) {
-            Tab.entries.forEach { tab ->
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(56.dp)
-                        .clickable { onSelect(tab) },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text = tab.label,
-                        color = if (tab == current) c.primary else c.muted,
-                        fontSize = 12.sp,
-                        fontWeight = if (tab == current) FontWeight.Medium else FontWeight.Normal,
-                    )
-                }
-            }
-        }
-    }
-}
-
-

@@ -27,6 +27,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -64,6 +65,7 @@ fun DashboardScreen(
     onTierCrossed: (String) -> Unit = {},
 ) {
     val c = LocalThemeColors.current
+    val compactHeader = LocalConfiguration.current.screenWidthDp <= 360
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val today = remember { LocalDate.now() }
@@ -129,10 +131,11 @@ fun DashboardScreen(
             verticalAlignment = Alignment.Top,
         ) {
             Column(modifier = Modifier.weight(1f)) {
+                val tierTitle = theme.tierName(band)
                 Text(
-                    theme.tierName(band),
+                    tierTitle,
                     color = c.primary,
-                    fontSize = 31.sp,
+                    fontSize = if (compactHeader && tierTitle.length > 10) 24.sp else 31.sp,
                     fontFamily = FontFamily.Serif,
                     fontWeight = FontWeight.Light,
                 )
@@ -147,11 +150,9 @@ fun DashboardScreen(
                     Text("Two levels above the floor.", color = c.warm, fontSize = 11.sp)
                 }
             }
-            Text(
-                "Settings",
-                color = c.muted,
-                fontSize = 14.sp,
-                modifier = Modifier.clickable(onClick = onOpenSettings).padding(4.dp),
+            TataraGhostAction(
+                label = "Settings",
+                onClick = onOpenSettings,
             )
         }
 
@@ -159,6 +160,7 @@ fun DashboardScreen(
         ProgressionHero(
             motif = theme.motif,
             tier = band,
+            level = level,
             dailyCompletion = fill,
         )
 
@@ -224,7 +226,7 @@ fun DashboardScreen(
             }
 
             if (reviews.isNotEmpty()) {
-                DashSection("Weekly reviews")
+                TataraSectionHeader("Weekly reviews")
                 reviews.forEach { review ->
                     val label = review.weekStart.format(DateTimeFormatter.ofPattern("d MMM"))
                     Row(
@@ -249,13 +251,13 @@ fun DashboardScreen(
                     if (openContent?.weekStart == review.weekStart) {
                         ReviewDetail(openContent!!)
                     }
-                    Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(c.hairline))
+                    TataraDivider()
                 }
             }
 
             if (crossings.isNotEmpty()) {
                 // §7.3 — the page that only ever grows.
-                DashSection("Tiers")
+                TataraSectionHeader("Tiers")
                 crossings.sortedBy { it.date }.forEach { crossing ->
                     Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
                         Text(
@@ -361,14 +363,6 @@ private fun DailyStatus(completion: Float) {
     }
 }
 
-@Composable
-private fun DashSection(title: String) {
-    val c = LocalThemeColors.current
-    Spacer(modifier = Modifier.height(20.dp))
-    Text(title, color = c.muted, fontSize = 12.sp)
-    Spacer(modifier = Modifier.height(6.dp))
-    Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(c.hairline))
-}
 
 @Composable
 private fun ReviewDetail(content: ReviewContent) {

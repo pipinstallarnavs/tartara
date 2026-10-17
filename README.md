@@ -53,6 +53,34 @@ docs/APP-GUIDE.md                    User and feature guide
 SPEC.md                              Product and technical specification
 ```
 
+## UI design system
+
+Shared spacing, sizing, shape, and typography tokens live in
+`app/src/main/java/com/tatara/ui/TataraTokens.kt`. Reusable buttons, labelled
+fields, steppers, segmented controls, checkboxes, section structure, empty
+states, and bottom navigation live in `TataraComponents.kt`.
+
+`design/ui-component-board-v01.svg` is the implementation reference; its PNG
+render is stored beside it for review.
+
+The Train home keeps session actions separate from routine management. Routine
+creation and extension use a focused editor; the routine name and newly added
+exercise prescriptions are saved atomically before the compact routine list is
+refreshed.
+
+## Illustrated progression heroes
+
+Eight selectable skins (Nie, Astra, Saṃskāra, Alchemy, Axiom, Signal, Edifice,
+Voyager) each have nine distinct generated tier motifs. The dashboard composites
+the selected transparent motif over a themed world and adds cumulative
+level-specific detail; today's completion changes only transient light. Theme
+selection is stored locally, independent of the logged progression. Optimized
+WebP resources live in `app/src/main/res/drawable-nodpi/`; versioned image
+sources and prompt/approval notes live in `design/source-art/` and
+`design/skin-art-prompts/`. No art is downloaded at runtime. The original
+`samskara_forest.png` and `samskara_sapling.png` are preserved as tier-one
+source images, not duplicated as runtime PNGs.
+
 ## Privacy
 
 Tatara does not require network access for normal operation. Export files may contain personal health and activity data and should be stored accordingly.

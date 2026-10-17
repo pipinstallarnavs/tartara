@@ -29,7 +29,8 @@ import kotlin.math.sin
 /**
  * §2.5 — the completion mark. Nothing in this app is a stock checkbox: each theme
  * stamps its own glyph, drawn on Canvas so it can carry the heat ramp and animate.
- * Blade = a tempered slash, Astra = an eight-pointed star, Tree = a leaf.
+ * Blade = a tempered slash, Astra = a star, Tree = a leaf; the other five skins
+ * stamp their own instrument, geometric, wave, arch, or compass glyph.
  *
  * Pending is an empty vessel — outline only, never a filled block that could be
  * mistaken for done. Completing runs a short scale-and-heat pass, and the caller
@@ -38,7 +39,7 @@ import kotlin.math.sin
 @Composable
 fun MotifMark(
     checked: Boolean,
-    onClick: () -> Unit,
+    onClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     size: Dp = 26.dp,
     frozen: Boolean = false,
@@ -54,8 +55,14 @@ fun MotifMark(
         )
     }
 
-    Canvas(modifier = modifier.size(size).clickable(onClick = onClick)) {
+    val canvasModifier = if (onClick != null) {
+        modifier.size(size).clickable(onClick = onClick)
+    } else {
+        modifier.size(size)
+    }
+    Canvas(modifier = canvasModifier) {
         val p = progress.value
+        val size = this.size
         val frameColor = when {
             frozen -> c.hairline
             p > 0f -> lerpColor(c.muted, c.glow, p)
@@ -83,6 +90,45 @@ fun MotifMark(
             Motif.BLADE -> drawBladeMark(c.hot, c.glow, p)
             Motif.ASTRA -> drawAstraMark(c.hot, c.glow, p)
             Motif.TREE -> drawTreeMark(c.hot, c.glow, p)
+            Motif.ALCHEMY -> {
+                drawCircle(c.glow.copy(alpha = p), size.minDimension * 0.29f,
+                    style = Stroke(size.minDimension * 0.07f))
+                drawCircle(c.hot.copy(alpha = p), size.minDimension * 0.10f)
+            }
+            Motif.AXIOM -> {
+                val a = Offset(size.width * 0.5f, size.height * 0.19f)
+                val b = Offset(size.width * 0.21f, size.height * 0.74f)
+                val d = Offset(size.width * 0.79f, size.height * 0.74f)
+                drawLine(c.glow.copy(alpha = p), a, b, size.minDimension * 0.09f)
+                drawLine(c.glow.copy(alpha = p), b, d, size.minDimension * 0.09f)
+                drawLine(c.glow.copy(alpha = p), d, a, size.minDimension * 0.09f)
+            }
+            Motif.SIGNAL -> {
+                val y = floatArrayOf(0.55f, 0.55f, 0.25f, 0.75f, 0.40f, 0.55f)
+                for (i in 0 until y.lastIndex) {
+                    drawLine(c.glow.copy(alpha = p),
+                        Offset(size.width * (0.16f + 0.68f * i / y.lastIndex), size.height * y[i]),
+                        Offset(size.width * (0.16f + 0.68f * (i + 1) / y.lastIndex), size.height * y[i + 1]),
+                        size.minDimension * 0.09f)
+                }
+            }
+            Motif.EDIFICE -> {
+                drawLine(c.glow.copy(alpha = p), Offset(size.width * 0.22f, size.height * 0.74f),
+                    Offset(size.width * 0.78f, size.height * 0.74f), size.minDimension * 0.09f)
+                drawLine(c.glow.copy(alpha = p), Offset(size.width * 0.32f, size.height * 0.74f),
+                    Offset(size.width * 0.32f, size.height * 0.35f), size.minDimension * 0.09f)
+                drawLine(c.glow.copy(alpha = p), Offset(size.width * 0.68f, size.height * 0.74f),
+                    Offset(size.width * 0.68f, size.height * 0.35f), size.minDimension * 0.09f)
+                drawCircle(c.hot.copy(alpha = p), size.minDimension * 0.15f,
+                    center = Offset(size.width * 0.5f, size.height * 0.35f),
+                    style = Stroke(size.minDimension * 0.07f))
+            }
+            Motif.VOYAGER -> {
+                drawCircle(c.glow.copy(alpha = p), size.minDimension * 0.29f,
+                    style = Stroke(size.minDimension * 0.07f))
+                drawLine(c.hot.copy(alpha = p), Offset(size.width * 0.5f, size.height * 0.21f),
+                    Offset(size.width * 0.5f, size.height * 0.79f), size.minDimension * 0.09f)
+            }
         }
     }
 }

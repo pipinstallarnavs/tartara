@@ -1,5 +1,7 @@
 package com.tatara.data.train
 
+import androidx.room.withTransaction
+
 import com.tatara.data.db.TataraDatabase
 import com.tatara.data.db.entity.Exercise
 import com.tatara.data.db.entity.Routine
@@ -33,6 +35,17 @@ data class SessionStart(
     val session: Session,
     val routine: Routine?,
     val prefill: List<PrefillSet>,
+)
+
+data class RoutinePrescription(
+    val exerciseId: Long,
+    val targetSets: Int,
+    val repRangeLow: Int,
+    val repRangeHigh: Int,
+    val incrementKg: Float,
+    val startWeightKg: Float,
+    val restSeconds: Int? = null,
+    val targetRpe: Float? = null,
 )
 
 sealed interface FinishResult {
@@ -77,6 +90,44 @@ class TrainRepository(
             restSeconds = restSeconds, targetRpe = targetRpe,
         )
         return item.copy(id = db.trainDao().insertRoutineItem(item))
+    }
+
+    /**
+     * Persists a focused-editor draft atomically. Existing prescriptions remain
+     * intact so historical progression links are never rewritten or detached.
+     */
+    suspend fun saveRoutine(
+        existing: Routine?,
+        name: String,
+        addedItems: List<RoutinePrescription>,
+    ): Routine = db.withTransaction {
+        val trimmedName = name.trim()
+        require(trimmedName.isNotEmpty())
+        val saved = if (existing == null) {
+            val order = (db.trainDao().routinesInOrder().maxOfOrNull { it.sortOrder } ?: -1) + 1
+            val routine = Routine(name = trimmedName, sortOrder = order)
+            routine.copy(id = db.trainDao().insertRoutine(routine))
+        } else {
+            existing.copy(name = trimmedName).also { db.trainDao().updateRoutine(it) }
+        }
+        var order = (db.trainDao().itemsForRoutine(saved.id).maxOfOrNull { it.sortOrder } ?: -1) + 1
+        addedItems.forEach { prescription ->
+            db.trainDao().insertRoutineItem(
+                RoutineItem(
+                    routineId = saved.id,
+                    exerciseId = prescription.exerciseId,
+                    targetSets = prescription.targetSets,
+                    sortOrder = order++,
+                    repRangeLow = prescription.repRangeLow,
+                    repRangeHigh = prescription.repRangeHigh,
+                    incrementKg = prescription.incrementKg,
+                    currentWeightKg = prescription.startWeightKg,
+                    restSeconds = prescription.restSeconds,
+                    targetRpe = prescription.targetRpe,
+                )
+            )
+        }
+        saved
     }
 
     /**

@@ -1,7 +1,6 @@
 package com.tatara.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,7 +14,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -27,10 +25,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.tatara.data.db.entity.CurfewLog
@@ -43,6 +38,12 @@ import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.launch
+
+private val SHORT_DATE_FORMAT = DateTimeFormatter.ofPattern("d MMM")
+private val SLEEP_QUALITY_OPTIONS = (1..5).toList()
+private val CURFEW_OPTIONS = listOf(true, false)
+private val ENVIRONMENT_ITEMS =
+    listOf("Caffeine cutoff", "Room dark", "Room cool", "No late meal")
 
 @Composable
 fun SleepScreen(repo: SleepRepository) {
@@ -95,7 +96,7 @@ fun SleepScreen(repo: SleepRepository) {
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(start = 24.dp, end = 16.dp, top = 16.dp),
+            .padding(horizontal = TataraSpacing.ScreenHorizontal, vertical = TataraSpacing.Standard),
     ) {
         // §6.3 — regularity is the large number; duration is secondary.
         Row(verticalAlignment = Alignment.Bottom) {
@@ -120,86 +121,89 @@ fun SleepScreen(repo: SleepRepository) {
         }
 
         Spacer(modifier = Modifier.height(12.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            (2L downTo 0L).map { today.minusDays(it) }.forEach { date ->
-                val label = if (date == today) "Today" else date.format(DateTimeFormatter.ofPattern("d MMM"))
-                Text(
-                    text = label,
-                    color = if (date == selectedDate) c.primary else c.muted,
-                    fontSize = 13.sp,
-                    modifier = Modifier
-                        .background(if (date == selectedDate) c.surface else c.ground, RoundedCornerShape(2.dp))
-                        .clickable { selectedDate = date }
-                        .padding(horizontal = 10.dp, vertical = 6.dp),
-                )
-            }
-        }
+        val editDates = remember(today) { (2L downTo 0L).map { today.minusDays(it) } }
+        TataraSegmentedControl(
+            items = editDates,
+            selected = selectedDate,
+            onSelected = { selectedDate = it },
+            label = "Log date",
+            itemLabel = { date ->
+                if (date == today) "Today" else date.format(SHORT_DATE_FORMAT)
+            },
+        )
 
-        SleepSection("Log")
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            TimeField("bed", bed) { bed = it }
-            TimeField("wake", wake) { wake = it }
-            TimeField("to sleep, min", ttfa) { ttfa = it }
-            TimeField("wakes", wakeCount) { wakeCount = it }
-        }
-        Spacer(modifier = Modifier.height(8.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Quality", color = c.muted, fontSize = 12.sp)
-            Spacer(modifier = Modifier.width(12.dp))
-            (1..5).forEach { q ->
-                Text(
-                    "$q",
-                    color = if (q == quality) c.ground else c.muted,
-                    fontSize = 13.sp,
-                    fontFamily = FontFamily.Monospace,
-                    modifier = Modifier
-                        .padding(end = 6.dp)
-                        .background(if (q == quality) c.cool else c.surface, RoundedCornerShape(2.dp))
-                        .clickable { quality = q }
-                        .padding(horizontal = 10.dp, vertical = 5.dp),
-                )
-            }
-            Spacer(modifier = Modifier.weight(1f))
-            Text(
-                "Save",
-                color = c.cool,
-                fontSize = 14.sp,
-                modifier = Modifier
-                    .clickable {
-                        scope.launch {
-                            val b = parseTime(bed)
-                            val w = parseTime(wake)
-                            if (b == null || w == null || quality == 0) {
-                                notice = "Bed, wake, and quality are required."
-                            } else {
-                                repo.logSleep(
-                                    selectedDate, b, w,
-                                    ttfa.toIntOrNull() ?: 0,
-                                    wakeCount.toIntOrNull() ?: 0,
-                                    quality,
-                                )
-                                refresh()
-                            }
-                        }
-                    }
-                    .padding(8.dp),
+        TataraSectionHeader("Sleep log")
+        Row(horizontalArrangement = Arrangement.spacedBy(TataraSpacing.Tight)) {
+            TataraTimeField(
+                bed,
+                { bed = it; notice = null },
+                "Bed time",
+                Modifier.weight(1f),
+                error = if (notice != null && parseTime(bed) == null) "Use HH:mm." else null,
+            )
+            TataraTimeField(
+                wake,
+                { wake = it; notice = null },
+                "Wake time",
+                Modifier.weight(1f),
+                placeholder = "07:00",
+                error = if (notice != null && parseTime(wake) == null) "Use HH:mm." else null,
             )
         }
+        Spacer(modifier = Modifier.height(TataraSpacing.Control))
+        Row(horizontalArrangement = Arrangement.spacedBy(TataraSpacing.Tight)) {
+            TataraNumberField(ttfa, { ttfa = it }, "Sleep latency", Modifier.weight(1f), suffix = "min")
+            TataraNumberField(wakeCount, { wakeCount = it }, "Wake count", Modifier.weight(1f))
+        }
+        Spacer(modifier = Modifier.height(TataraSpacing.Control))
+        TataraSegmentedControl(
+            items = SLEEP_QUALITY_OPTIONS,
+            selected = quality.takeIf { it > 0 },
+            onSelected = { quality = it; notice = null },
+            label = "Sleep quality",
+            itemLabel = { it.toString() },
+        )
+        Spacer(modifier = Modifier.height(TataraSpacing.Control))
+        TataraPrimaryButton(
+            label = "Save night",
+            onClick = {
+                scope.launch {
+                    val b = parseTime(bed)
+                    val w = parseTime(wake)
+                    if (b == null || w == null || quality == 0) {
+                        notice = "Bed, wake, and quality are required."
+                    } else {
+                        repo.logSleep(
+                            selectedDate,
+                            b,
+                            w,
+                            ttfa.toIntOrNull() ?: 0,
+                            wakeCount.toIntOrNull() ?: 0,
+                            quality,
+                        )
+                        refresh()
+                    }
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+        )
         notice?.let { Text(it, color = c.warm, fontSize = 12.sp) }
 
         target?.let { t ->
-            SleepSection("Screen curfew")
+            TataraSectionHeader("Screen curfew")
             val start = repo.curfewStartFor(t)
             Text("Curfew starts $start.", color = c.muted, fontSize = 12.sp)
             Spacer(modifier = Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                CurfewChip("Held", selected = curfewHeld == true, selectedColor = c.cool) {
-                    scope.launch { repo.logCurfew(selectedDate, held = true); refresh() }
-                }
-                CurfewChip("Broke it", selected = curfewHeld == false, selectedColor = c.warm) {
-                    scope.launch { repo.logCurfew(selectedDate, held = false); refresh() }
-                }
-            }
+            TataraSegmentedControl(
+                items = CURFEW_OPTIONS,
+                selected = curfewHeld,
+                onSelected = { held ->
+                    scope.launch { repo.logCurfew(selectedDate, held = held); refresh() }
+                },
+                label = "Curfew result",
+                itemLabel = { if (it) "Held" else "Broke it" },
+                selectedColor = if (curfewHeld == false) c.warm else c.cool,
+            )
             Spacer(modifier = Modifier.height(10.dp))
             // §6.4 — the 28-night strip: cool held, warm broken, surface unlogged.
             Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -227,47 +231,24 @@ fun SleepScreen(repo: SleepRepository) {
             )
         }
 
-        SleepSection("Checklist")
-        listOf("Caffeine cutoff", "Room dark", "Room cool", "No late meal").forEachIndexed { i, label ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable {
-                        val next = checklist.copyOf().also { it[i] = !it[i] }
-                        checklist = next
-                        scope.launch {
-                            repo.logChecklist(selectedDate, next[0], next[1], next[2], next[3])
-                            correlations = repo.correlations()
-                        }
+        TataraSectionHeader("Environment")
+        ENVIRONMENT_ITEMS.forEachIndexed { i, label ->
+            TataraCheckbox(
+                checked = checklist[i],
+                onCheckedChange = { checked ->
+                    val next = checklist.copyOf().also { it[i] = checked }
+                    checklist = next
+                    scope.launch {
+                        repo.logChecklist(selectedDate, next[0], next[1], next[2], next[3])
+                        correlations = repo.correlations()
                     }
-                    .padding(vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                // §2.5 — the theme's mark here too; nothing in the app is a plain box.
-                MotifMark(
-                    checked = checklist[i],
-                    size = 20.dp,
-                    onClick = {
-                        val next = checklist.copyOf().also { it[i] = !it[i] }
-                        checklist = next
-                        scope.launch {
-                            repo.logChecklist(selectedDate, next[0], next[1], next[2], next[3])
-                            correlations = repo.correlations()
-                        }
-                    },
-                )
-                Spacer(modifier = Modifier.width(10.dp))
-                Text(
-                    label,
-                    color = if (checklist[i]) c.muted else c.primary,
-                    fontSize = 14.sp,
-                    textDecoration = if (checklist[i]) TextDecoration.LineThrough else null,
-                )
-            }
+                },
+                label = label,
+            )
         }
 
         if (correlations.isNotEmpty()) {
-            SleepSection("Cold maths, trailing 30 days")
+            TataraSectionHeader("Analytics")
             correlations.forEach { comp ->
                 Text(
                     "${comp.label}: %.1f (n=%d) vs %.1f (n=%d)".format(
@@ -282,7 +263,7 @@ fun SleepScreen(repo: SleepRepository) {
         }
 
         target?.let { t ->
-            SleepSection("Target")
+            TataraSectionHeader("Target")
             TargetEditor(t, onSave = { b, w, m ->
                 scope.launch {
                     repo.editTarget(b, w, m)
@@ -294,92 +275,56 @@ fun SleepScreen(repo: SleepRepository) {
     }
 }
 
-/**
- * Sleep stacks several unrelated tools, so each gets a titled surface rather than
- * a bare label over a hairline — otherwise the screen reads as one long list.
- */
-@Composable
-private fun SleepSection(title: String) {
-    val c = LocalThemeColors.current
-    Spacer(modifier = Modifier.height(18.dp))
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        MotifGlyph(size = 9.dp)
-        Spacer(modifier = Modifier.width(6.dp))
-        Text(title, color = c.muted, fontSize = 12.sp)
-    }
-    Spacer(modifier = Modifier.height(6.dp))
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(2.dp)
-            .background(c.surfaceHigh, RoundedCornerShape(1.dp))
-    )
-    Spacer(modifier = Modifier.height(10.dp))
-}
-
-@Composable
-private fun TimeField(label: String, value: String, onChange: (String) -> Unit) {
-    val c = LocalThemeColors.current
-    Column {
-        Text(label, color = c.muted, fontSize = 10.sp)
-        BasicTextField(
-            value = value,
-            onValueChange = onChange,
-            singleLine = true,
-            textStyle = TextStyle(color = c.primary, fontSize = 14.sp, fontFamily = FontFamily.Monospace),
-            cursorBrush = SolidColor(c.cool),
-            modifier = Modifier
-                .width(74.dp)
-                .background(c.surface, RoundedCornerShape(2.dp))
-                .padding(8.dp),
-        )
-    }
-}
-
-@Composable
-private fun CurfewChip(label: String, selected: Boolean, selectedColor: androidx.compose.ui.graphics.Color, onClick: () -> Unit) {
-    val c = LocalThemeColors.current
-    Text(
-        label,
-        color = if (selected) c.ground else c.primary,
-        fontSize = 13.sp,
-        modifier = Modifier
-            .background(if (selected) selectedColor else c.surface, RoundedCornerShape(2.dp))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 7.dp),
-    )
-}
-
 @Composable
 private fun TargetEditor(target: SleepTarget, onSave: (LocalTime, LocalTime, Int) -> Unit) {
-    val c = LocalThemeColors.current
     var bed by remember(target.id) { mutableStateOf(target.targetBedTime.toString()) }
     var wake by remember(target.id) { mutableStateOf(target.targetWakeTime.toString()) }
     var curfew by remember(target.id) { mutableStateOf(target.curfewMinutes.toString()) }
     var error by remember { mutableStateOf(false) }
 
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Bottom) {
-        TimeField("bed", bed) { bed = it }
-        TimeField("wake", wake) { wake = it }
-        TimeField("curfew, min", curfew) { curfew = it }
-        Text(
-            "Save",
-            color = c.cool,
-            fontSize = 14.sp,
-            modifier = Modifier
-                .clickable {
-                    val b = parseTime(bed)
-                    val w = parseTime(wake)
-                    val m = curfew.toIntOrNull()
-                    if (b != null && w != null && m != null) {
-                        error = false
-                        onSave(b, w, m)
-                    } else error = true
+    Column {
+        Row(horizontalArrangement = Arrangement.spacedBy(TataraSpacing.Tight)) {
+            TataraTimeField(
+                value = bed,
+                onValueChange = { bed = it; error = false },
+                label = "Bed time",
+                modifier = Modifier.weight(1f),
+                error = if (error && parseTime(bed) == null) "Use HH:mm." else null,
+            )
+            TataraTimeField(
+                value = wake,
+                onValueChange = { wake = it; error = false },
+                label = "Wake time",
+                modifier = Modifier.weight(1f),
+                placeholder = "07:00",
+                error = if (error && parseTime(wake) == null) "Use HH:mm." else null,
+            )
+        }
+        Spacer(modifier = Modifier.height(TataraSpacing.Control))
+        TataraNumberField(
+            value = curfew,
+            onValueChange = { curfew = it; error = false },
+            label = "Screen curfew",
+            suffix = "min",
+            error = if (error && curfew.toIntOrNull() == null) "Enter minutes." else null,
+        )
+        Spacer(modifier = Modifier.height(TataraSpacing.Control))
+        TataraPrimaryButton(
+            label = "Save target",
+            onClick = {
+                val b = parseTime(bed)
+                val w = parseTime(wake)
+                val m = curfew.toIntOrNull()
+                if (b != null && w != null && m != null) {
+                    error = false
+                    onSave(b, w, m)
+                } else {
+                    error = true
                 }
-                .padding(8.dp),
+            },
+            modifier = Modifier.fillMaxWidth(),
         )
     }
-    if (error) Text("Times as HH:mm.", color = c.warm, fontSize = 12.sp)
 }
 
 private fun parseTime(text: String): LocalTime? = try {

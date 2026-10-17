@@ -1,7 +1,6 @@
 package com.tatara.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,8 +15,6 @@ import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -29,11 +26,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -51,6 +44,9 @@ import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.launch
+
+private val SHORT_DATE_FORMAT = DateTimeFormatter.ofPattern("d MMM")
+private val HABIT_LIST_OPTIONS = listOf(HabitList.HABIT, HabitList.HYGIENE)
 
 @Composable
 fun HabitsScreen(repo: HabitRepository) {
@@ -84,50 +80,39 @@ fun HabitsScreen(repo: HabitRepository) {
 
     LaunchedEffect(selectedDate) { refresh() }
 
-    Column(modifier = Modifier.fillMaxSize().padding(start = 24.dp, end = 16.dp, top = 16.dp)) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = TataraSpacing.ScreenHorizontal, vertical = TataraSpacing.Standard)
+    ) {
         // §2.1 — the edit window is today, yesterday, D-2. Nothing older.
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            (2L downTo 0L).map { today.minusDays(it) }.forEach { date ->
-                val label = if (date == today) "Today"
-                else date.format(DateTimeFormatter.ofPattern("d MMM"))
-                Text(
-                    text = label,
-                    color = if (date == selectedDate) c.primary else c.muted,
-                    fontSize = 13.sp,
-                    modifier = Modifier
-                        .background(
-                            if (date == selectedDate) c.surface else c.ground,
-                            RoundedCornerShape(2.dp),
-                        )
-                        .clickable { selectedDate = date }
-                        .padding(horizontal = 10.dp, vertical = 6.dp),
-                )
-            }
+        val editDates = remember(today) { (2L downTo 0L).map { today.minusDays(it) } }
+        TataraSegmentedControl(
+            items = editDates,
+            selected = selectedDate,
+            onSelected = { selectedDate = it },
+            label = "Log date",
+            itemLabel = { date ->
+                if (date == today) "Today" else date.format(SHORT_DATE_FORMAT)
+            },
+        )
+        Spacer(modifier = Modifier.height(TataraSpacing.Control))
+        TataraSegmentedControl(
+            items = HABIT_LIST_OPTIONS,
+            selected = segment,
+            onSelected = { segment = it },
+            label = "List",
+            itemLabel = { if (it == HabitList.HABIT) "Habits" else "Hygiene" },
+        )
+        if (segment == HabitList.HABIT) {
+            Text(
+                "$tokensLeft freeze left",
+                color = c.muted,
+                fontSize = 12.sp,
+                fontFamily = FontFamily.Monospace,
+                modifier = Modifier.padding(top = TataraSpacing.Tight),
+            )
         }
-
-        Spacer(modifier = Modifier.height(12.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            listOf(HabitList.HABIT to "Habits", HabitList.HYGIENE to "Hygiene").forEach { (list, label) ->
-                Text(
-                    text = label,
-                    color = if (segment == list) c.primary else c.muted,
-                    fontSize = 14.sp,
-                    modifier = Modifier.clickable { segment = list }.padding(vertical = 4.dp),
-                )
-            }
-            Spacer(modifier = Modifier.weight(1f))
-            if (segment == HabitList.HABIT) {
-                Text(
-                    "$tokensLeft freeze left",
-                    color = c.muted,
-                    fontSize = 12.sp,
-                    fontFamily = FontFamily.Monospace,
-                )
-            }
-        }
-        Spacer(modifier = Modifier.height(4.dp))
-        Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(c.hairline))
-
         val visible = habits.filter { it.list == segment }
         val byStack = visible.groupBy { it.stackId }
         val stackOrder = stacks.sortedBy { it.sortOrder }
@@ -259,13 +244,10 @@ fun HabitsScreen(repo: HabitRepository) {
                 },
             )
         } else {
-            Text(
-                "+ Add habit",
-                color = c.cool,
-                fontSize = 13.sp,
-                modifier = Modifier
-                    .clickable { showAddHabit = true }
-                    .padding(top = 12.dp, bottom = 4.dp),
+            TataraGhostAction(
+                label = "+ Add habit",
+                onClick = { showAddHabit = true },
+                modifier = Modifier.fillMaxWidth(),
             )
         }
 
@@ -291,37 +273,20 @@ private fun AddHabitForm(
     onSave: () -> Unit,
 ) {
     val c = LocalThemeColors.current
-    Column(modifier = Modifier.padding(top = 12.dp, bottom = 4.dp)) {
-        BasicTextField(
+    Column(modifier = Modifier.padding(top = TataraSpacing.Control, bottom = TataraSpacing.Micro)) {
+        TataraTextField(
             value = name,
             onValueChange = onNameChange,
-            singleLine = true,
-            textStyle = TextStyle(color = c.primary, fontSize = 14.sp),
-            cursorBrush = SolidColor(c.cool),
-            decorationBox = { inner ->
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(c.surface, RoundedCornerShape(2.dp))
-                        .padding(10.dp),
-                ) {
-                    if (name.isEmpty()) Text("Habit name", color = c.muted, fontSize = 14.sp)
-                    inner()
-                }
-            },
+            label = "Habit name",
+            placeholder = "Read after breakfast",
         )
         Spacer(modifier = Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             (listOf<Stack?>(null) + stacks.sortedBy { it.sortOrder }).forEach { stack ->
-                val selected = stack?.id == selectedStackId
-                Text(
-                    text = stack?.name ?: "No group",
-                    color = if (selected) c.primary else c.muted,
-                    fontSize = 12.sp,
-                    modifier = Modifier
-                        .background(if (selected) c.surface else Color.Transparent, RoundedCornerShape(2.dp))
-                        .clickable { onSelectStack(stack?.id) }
-                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                TataraChoiceChip(
+                    label = stack?.name ?: "No group",
+                    selected = stack?.id == selectedStackId,
+                    onClick = { onSelectStack(stack?.id) },
                 )
             }
         }
@@ -330,9 +295,9 @@ private fun AddHabitForm(
             Text(it, color = c.warm, fontSize = 12.sp)
         }
         Spacer(modifier = Modifier.height(8.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            Text("Cancel", color = c.muted, fontSize = 13.sp, modifier = Modifier.clickable(onClick = onCancel))
-            Text("Add", color = c.cool, fontSize = 13.sp, modifier = Modifier.clickable(onClick = onSave))
+        Row(horizontalArrangement = Arrangement.spacedBy(TataraSpacing.Tight)) {
+            TataraSecondaryButton("Cancel", onCancel, Modifier.weight(1f))
+            TataraPrimaryButton("Add habit", onSave, Modifier.weight(1f), enabled = name.isNotBlank())
         }
     }
 }
@@ -350,49 +315,37 @@ private fun EditHabitForm(
     onSave: () -> Unit,
 ) {
     val c = LocalThemeColors.current
-    Column(modifier = Modifier.padding(start = 34.dp, top = 4.dp, bottom = 8.dp)) {
-        BasicTextField(
+    Column(
+        modifier = Modifier.padding(
+            start = TataraSpacing.Section,
+            top = TataraSpacing.Micro,
+            bottom = TataraSpacing.Tight,
+        )
+    ) {
+        TataraTextField(
             value = name,
             onValueChange = onNameChange,
-            singleLine = true,
-            textStyle = TextStyle(color = c.primary, fontSize = 14.sp),
-            cursorBrush = SolidColor(c.cool),
-            decorationBox = { inner ->
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(c.surface, RoundedCornerShape(2.dp))
-                        .padding(10.dp),
-                ) {
-                    if (name.isEmpty()) Text("Habit name", color = c.muted, fontSize = 14.sp)
-                    inner()
-                }
-            },
+            label = "Habit name",
         )
-        Spacer(modifier = Modifier.height(8.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Spacer(modifier = Modifier.height(TataraSpacing.Tight))
+        Row(horizontalArrangement = Arrangement.spacedBy(TataraSpacing.Tight)) {
             (listOf<Stack?>(null) + stacks.sortedBy { it.sortOrder }).forEach { stack ->
-                val selected = stack?.id == selectedStackId
-                Text(
-                    text = stack?.name ?: "No group",
-                    color = if (selected) c.primary else c.muted,
-                    fontSize = 12.sp,
-                    modifier = Modifier
-                        .background(if (selected) c.surface else Color.Transparent, RoundedCornerShape(2.dp))
-                        .clickable { onSelectStack(stack?.id) }
-                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                TataraChoiceChip(
+                    label = stack?.name ?: "No group",
+                    selected = stack?.id == selectedStackId,
+                    onClick = { onSelectStack(stack?.id) },
                 )
             }
         }
         error?.let {
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(it, color = c.warm, fontSize = 12.sp)
+            Spacer(modifier = Modifier.height(TataraSpacing.Tight))
+            Text(it, color = c.warm, fontSize = TataraType.Label)
         }
-        Spacer(modifier = Modifier.height(8.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            Text("Cancel", color = c.muted, fontSize = 13.sp, modifier = Modifier.clickable(onClick = onCancel))
-            Text("Delete", color = c.warm, fontSize = 13.sp, modifier = Modifier.clickable(onClick = onDelete))
-            Text("Save", color = c.cool, fontSize = 13.sp, modifier = Modifier.clickable(onClick = onSave))
+        Spacer(modifier = Modifier.height(TataraSpacing.Tight))
+        Row(horizontalArrangement = Arrangement.spacedBy(TataraSpacing.Tight)) {
+            TataraSecondaryButton("Cancel", onCancel, Modifier.weight(1f))
+            TataraDestructiveButton("Delete", onDelete, Modifier.weight(1f))
+            TataraPrimaryButton("Save", onSave, Modifier.weight(1f), enabled = name.isNotBlank())
         }
     }
 }

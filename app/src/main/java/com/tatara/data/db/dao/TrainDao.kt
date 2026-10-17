@@ -21,6 +21,7 @@ interface TrainDao {
 
     @Insert suspend fun insertRoutine(routine: Routine): Long
     @Insert suspend fun insertRoutines(routines: List<Routine>)
+    @Update suspend fun updateRoutine(routine: Routine)
     @Query("SELECT * FROM routine ORDER BY sortOrder") suspend fun routinesInOrder(): List<Routine>
     @Query("SELECT * FROM routine ORDER BY id") suspend fun getAllRoutines(): List<Routine>
     @Query("DELETE FROM routine") suspend fun deleteAllRoutines()

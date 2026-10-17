@@ -2,7 +2,6 @@ package com.tatara.ui
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -19,8 +18,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -31,18 +28,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.ui.text.input.KeyboardType
 import com.tatara.data.db.TataraDatabase
 import com.tatara.data.db.dao.EntryWithFood
 import com.tatara.data.db.entity.FatSource
@@ -73,6 +67,7 @@ fun FoodScreen(repo: FoodRepository, db: TataraDatabase) {
     val c = LocalThemeColors.current
     val scope = rememberCoroutineScope()
     val today = remember { LocalDate.now() }
+    val foodEntryFocus = remember { FocusRequester() }
 
     var input by remember { mutableStateOf("") }
     var entries by remember { mutableStateOf(listOf<EntryWithFood>()) }
@@ -184,37 +179,27 @@ fun FoodScreen(repo: FoodRepository, db: TataraDatabase) {
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(start = 24.dp, end = 16.dp, top = 16.dp),
+            .padding(horizontal = TataraSpacing.ScreenHorizontal, vertical = TataraSpacing.Standard),
     ) {
-        BasicTextField(
-            value = input,
-            onValueChange = { input = it },
-            singleLine = true,
-            textStyle = TextStyle(color = c.primary, fontSize = 16.sp),
-            cursorBrush = SolidColor(c.cool),
-            decorationBox = { inner ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(c.surface, RoundedCornerShape(2.dp))
-                        .padding(12.dp),
-                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-                ) {
-                    Box(modifier = Modifier.weight(1f)) {
-                        if (input.isEmpty()) {
-                            Text("60g rice", color = c.muted, fontSize = 16.sp)
-                        }
-                        inner()
-                    }
-                    Text(
-                        text = "Log",
-                        color = c.cool,
-                        fontSize = 14.sp,
-                        modifier = Modifier.clickable { submit() }.padding(start = 12.dp),
-                    )
-                }
-            },
-        )
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(TataraSpacing.Tight),
+            verticalAlignment = androidx.compose.ui.Alignment.Bottom,
+        ) {
+            TataraTextField(
+                value = input,
+                onValueChange = { input = it },
+                label = "Food entry",
+                placeholder = "60g rice",
+                modifier = Modifier
+                    .weight(1f)
+                    .focusRequester(foodEntryFocus),
+            )
+            TataraPrimaryButton(
+                label = "Log",
+                onClick = { submit() },
+                enabled = input.isNotBlank(),
+            )
+        }
 
         if (candidates.isNotEmpty() && !showCreateFood) {
             // §3.1 — inline chip row, one tap to disambiguate. Never a dialog.
@@ -225,32 +210,24 @@ fun FoodScreen(repo: FoodRepository, db: TataraDatabase) {
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 items(candidates) { food ->
-                    Text(
-                        text = food.name,
-                        color = c.primary,
-                        fontSize = 13.sp,
-                        modifier = Modifier
-                            .background(c.surface, RoundedCornerShape(2.dp))
-                            .clickable {
-                                scope.launch {
-                                    repo.addEntry(food, pendingQuantity ?: 100f)
-                                    input = ""
-                                    candidates = emptyList()
-                                    createPrefill = null
-                                    refresh()
-                                }
+                    TataraChoiceChip(
+                        label = food.name,
+                        selected = false,
+                        onClick = {
+                            scope.launch {
+                                repo.addEntry(food, pendingQuantity ?: 100f)
+                                input = ""
+                                candidates = emptyList()
+                                createPrefill = null
+                                refresh()
                             }
-                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                        },
                     )
                 }
                 item {
-                    Text(
-                        text = "Add your own",
-                        color = c.cool,
-                        fontSize = 13.sp,
-                        modifier = Modifier
-                            .clickable { showCreateFood = true }
-                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                    TataraGhostAction(
+                        label = "Add your own",
+                        onClick = { showCreateFood = true },
                     )
                 }
             }
@@ -286,11 +263,10 @@ fun FoodScreen(repo: FoodRepository, db: TataraDatabase) {
                     },
                 )
             } else if (candidates.isEmpty()) {
-                Text(
-                    "Create \"$query\"",
-                    color = c.cool,
-                    fontSize = 13.sp,
-                    modifier = Modifier.clickable { showCreateFood = true }.padding(top = 6.dp),
+                TataraGhostAction(
+                    label = "Create \"$query\"",
+                    onClick = { showCreateFood = true },
+                    modifier = Modifier.padding(top = TataraSpacing.Tight),
                 )
             }
         }
@@ -299,14 +275,10 @@ fun FoodScreen(repo: FoodRepository, db: TataraDatabase) {
             Spacer(modifier = Modifier.height(12.dp))
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(quickAddFoods) { food ->
-                    Text(
-                        text = food.name,
-                        color = c.primary,
-                        fontSize = 13.sp,
-                        modifier = Modifier
-                            .background(c.surface, RoundedCornerShape(2.dp))
-                            .clickable { quickAdd(food) }
-                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                    TataraChoiceChip(
+                        label = food.name,
+                        selected = false,
+                        onClick = { quickAdd(food) },
                     )
                 }
             }
@@ -319,26 +291,30 @@ fun FoodScreen(repo: FoodRepository, db: TataraDatabase) {
             FatPaceSection(t, totals)
         }
         Spacer(modifier = Modifier.height(8.dp))
-        Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(c.hairline))
+        TataraDivider()
 
-        Text(
-            "Repeat yesterday",
-            color = c.cool,
-            fontSize = 12.sp,
-            modifier = Modifier.clickable { repeatYesterday() }.padding(vertical = 8.dp),
+        TataraSecondaryButton(
+            label = "Repeat yesterday",
+            onClick = { repeatYesterday() },
+            modifier = Modifier.fillMaxWidth(),
         )
 
         if (entries.isEmpty()) {
-            EmptyState(EmptyKind.FOOD)
+            TataraEmptyState(
+                title = "Nothing logged today",
+                message = "Use the food-entry field to begin the day.",
+                primaryActionLabel = "Add food",
+                onPrimaryAction = { foodEntryFocus.requestFocus() },
+            )
         } else {
             // A plain Column, not a LazyColumn: the page itself scrolls now that
             // weight and the weekly view sit below, and a day's log is short.
-            Column(modifier = Modifier.padding(top = 8.dp)) {
+            Column(modifier = Modifier.padding(top = TataraSpacing.Tight)) {
                 entries.forEach { EntryRow(it) }
             }
         }
 
-        FoodSection("Weight")
+        TataraSectionHeader("Weight")
         WeightQuickEntry(
             input = weightInput,
             onInputChange = { weightInput = it },
@@ -359,7 +335,7 @@ fun FoodScreen(repo: FoodRepository, db: TataraDatabase) {
             WeightTrendChart(raw = weightRaw, ewma = weightEwma)
         }
 
-        FoodSection("Targets")
+        TataraSectionHeader("Targets")
         Text(
             formulaKcal?.let { "Formula: ${it.toInt()} kcal" }
                 ?: "Formula: set height/birth year/sex/activity in Settings.",
@@ -381,7 +357,7 @@ fun FoodScreen(repo: FoodRepository, db: TataraDatabase) {
             )
         }
 
-        FoodSection("This week")
+        TataraSectionHeader("This week")
         Text("Calories", color = c.muted, fontSize = 11.sp)
         Spacer(modifier = Modifier.height(4.dp))
         WeekBarChart(days = weekKcal, target = weekTargetKcal, today = today)
@@ -400,24 +376,6 @@ fun FoodScreen(repo: FoodRepository, db: TataraDatabase) {
     }
 }
 
-@Composable
-private fun FoodSection(title: String) {
-    val c = LocalThemeColors.current
-    Spacer(modifier = Modifier.height(18.dp))
-    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-        MotifGlyph(size = 9.dp)
-        Spacer(modifier = Modifier.width(6.dp))
-        Text(title, color = c.muted, fontSize = 12.sp)
-    }
-    Spacer(modifier = Modifier.height(6.dp))
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(2.dp)
-            .background(c.surfaceHigh, RoundedCornerShape(1.dp))
-    )
-    Spacer(modifier = Modifier.height(10.dp))
-}
 
 @Composable
 private fun CreateFoodForm(
@@ -428,7 +386,6 @@ private fun CreateFoodForm(
         kcal: Float, protein: Float, carbs: Float, fat: Float,
     ) -> Unit,
 ) {
-    val c = LocalThemeColors.current
     var name by remember { mutableStateOf(initialName) }
     var unitType by remember { mutableStateOf(UnitType.GRAM) }
     var portionName by remember { mutableStateOf("") }
@@ -437,91 +394,63 @@ private fun CreateFoodForm(
     var carbs by remember { mutableStateOf("") }
     var fat by remember { mutableStateOf("") }
 
-    Column(modifier = Modifier.padding(top = 8.dp)) {
-        FormField("Name", name) { name = it }
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            listOf(UnitType.GRAM to "Per 100g", UnitType.PORTION to "Per serving").forEach { (type, label) ->
-                Text(
-                    label,
-                    color = if (unitType == type) c.primary else c.muted,
-                    fontSize = 12.sp,
-                    modifier = Modifier
-                        .background(if (unitType == type) c.surface else Color.Transparent, RoundedCornerShape(2.dp))
-                        .clickable { unitType = type }
-                        .padding(horizontal = 8.dp, vertical = 4.dp),
-                )
-            }
-        }
+    Column(modifier = Modifier.padding(top = TataraSpacing.Tight)) {
+        TataraTextField(
+            value = name,
+            onValueChange = { name = it },
+            label = "Name",
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Spacer(modifier = Modifier.height(TataraSpacing.Control))
+        val unitTypes = listOf(UnitType.GRAM, UnitType.PORTION)
+        TataraSegmentedControl(
+            items = unitTypes,
+            selected = unitType,
+            onSelected = { unitType = it },
+            label = "Nutrition basis",
+            itemLabel = { if (it == UnitType.GRAM) "Per 100g" else "Per serving" },
+        )
         if (unitType == UnitType.PORTION) {
-            FormField("Serving name (e.g. katori)", portionName) { portionName = it }
+            Spacer(modifier = Modifier.height(TataraSpacing.Control))
+            TataraTextField(
+                value = portionName,
+                onValueChange = { portionName = it },
+                label = "Serving name",
+                placeholder = "katori",
+            )
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            NumberField("kcal", kcal) { kcal = it }
-            NumberField("P", protein) { protein = it }
-            NumberField("C", carbs) { carbs = it }
-            NumberField("F", fat) { fat = it }
+        Spacer(modifier = Modifier.height(TataraSpacing.Control))
+        Row(horizontalArrangement = Arrangement.spacedBy(TataraSpacing.Tight)) {
+            TataraNumberField(kcal, { kcal = it }, "kcal", Modifier.weight(1f))
+            TataraNumberField(protein, { protein = it }, "P", Modifier.weight(1f), suffix = "g")
+            TataraNumberField(carbs, { carbs = it }, "C", Modifier.weight(1f), suffix = "g")
+            TataraNumberField(fat, { fat = it }, "F", Modifier.weight(1f), suffix = "g")
         }
-        Spacer(modifier = Modifier.height(8.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            Text("Cancel", color = c.muted, fontSize = 13.sp, modifier = Modifier.clickable(onClick = onCancel))
-            Text(
-                "Save",
-                color = c.cool,
-                fontSize = 13.sp,
-                modifier = Modifier.clickable {
+        Spacer(modifier = Modifier.height(TataraSpacing.Control))
+        Row(horizontalArrangement = Arrangement.spacedBy(TataraSpacing.Tight)) {
+            TataraSecondaryButton("Cancel", onCancel, Modifier.weight(1f))
+            TataraPrimaryButton(
+                label = "Save food",
+                onClick = {
                     if (name.isNotBlank()) {
                         onSave(
                             name,
                             unitType,
                             portionName.takeIf { unitType == UnitType.PORTION && it.isNotBlank() },
-                            kcal.toFloatOrNull() ?: 0f, protein.toFloatOrNull() ?: 0f,
-                            carbs.toFloatOrNull() ?: 0f, fat.toFloatOrNull() ?: 0f,
+                            kcal.toFloatOrNull() ?: 0f,
+                            protein.toFloatOrNull() ?: 0f,
+                            carbs.toFloatOrNull() ?: 0f,
+                            fat.toFloatOrNull() ?: 0f,
                         )
                     }
                 },
+                modifier = Modifier.weight(1f),
+                enabled = name.isNotBlank(),
             )
         }
     }
 }
 
-@Composable
-private fun FormField(label: String, value: String, onChange: (String) -> Unit) {
-    val c = LocalThemeColors.current
-    Column(modifier = Modifier.padding(bottom = 8.dp)) {
-        Text(label, color = c.muted, fontSize = 11.sp)
-        BasicTextField(
-            value = value,
-            onValueChange = onChange,
-            singleLine = true,
-            textStyle = TextStyle(color = c.primary, fontSize = 14.sp),
-            cursorBrush = SolidColor(c.cool),
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(c.surface, RoundedCornerShape(2.dp))
-                .padding(8.dp),
-        )
-    }
-}
-
-@Composable
-private fun NumberField(label: String, value: String, onChange: (String) -> Unit) {
-    val c = LocalThemeColors.current
-    Column(modifier = Modifier.padding(bottom = 8.dp)) {
-        Text(label, color = c.muted, fontSize = 11.sp)
-        BasicTextField(
-            value = value,
-            onValueChange = onChange,
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-            textStyle = TextStyle(color = c.primary, fontSize = 14.sp, fontFamily = FontFamily.Monospace),
-            cursorBrush = SolidColor(c.cool),
-            modifier = Modifier
-                .width(64.dp)
-                .background(c.surface, RoundedCornerShape(2.dp))
-                .padding(8.dp),
-        )
-    }
-}
 
 /**
  * §3.6 — one horizontal bar with tick marks at the 20% floor and 30% target, plus a
@@ -638,32 +567,22 @@ private fun fmt(v: Float): String =
 
 @Composable
 private fun WeightQuickEntry(input: String, onInputChange: (String) -> Unit, onLog: () -> Unit) {
-    val c = LocalThemeColors.current
-    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-        BasicTextField(
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(TataraSpacing.Tight),
+        verticalAlignment = androidx.compose.ui.Alignment.Bottom,
+    ) {
+        TataraNumberField(
             value = input,
             onValueChange = onInputChange,
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-            textStyle = TextStyle(color = c.primary, fontSize = 14.sp, fontFamily = FontFamily.Monospace),
-            cursorBrush = SolidColor(c.cool),
-            decorationBox = { inner ->
-                Box(
-                    modifier = Modifier
-                        .width(88.dp)
-                        .background(c.surface, RoundedCornerShape(2.dp))
-                        .padding(8.dp),
-                ) {
-                    if (input.isEmpty()) Text("kg today", color = c.muted, fontSize = 13.sp)
-                    inner()
-                }
-            },
+            label = "Body weight",
+            placeholder = "68.4",
+            suffix = "kg",
+            modifier = Modifier.weight(1f),
         )
-        Text(
-            "Log",
-            color = c.cool,
-            fontSize = 13.sp,
-            modifier = Modifier.clickable(onClick = onLog).padding(start = 12.dp, top = 8.dp, bottom = 8.dp),
+        TataraPrimaryButton(
+            label = "Log",
+            onClick = onLog,
+            enabled = input.toFloatOrNull() != null,
         )
     }
 }

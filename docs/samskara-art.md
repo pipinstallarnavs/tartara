@@ -3,11 +3,15 @@
 Generated with the built-in imagegen tool, September 25, 2026.
 The user's `Mystical Forest Growth Dashboard.png` supplied environment style and composition guidance only. No screenshot UI is used in the app.
 
-Runtime assets live in `app/src/main/res/drawable-nodpi/`:
-- `samskara_forest.png`: 1024 × 1536 opaque environment.
-- `samskara_sapling.png`: 1024 × 1536 RGBA foreground, generated transparency preserved.
-
-Compose draws the environment, ornamental ring, mist, aura, sapling, and particles separately. The sapling is deliberately small with sparse foliage. All dashboard text and state remain Compose UI. Resources are density-independent to prevent Android from inflating the source bitmap sizes on high-density phones; together decoded RGBA pixels cost approximately 12 MiB. No runtime image download, full-screen blur, or new dependency is needed.
+The original approved forest and sapling are preserved in
+`design/source-art/samskara/` as tier-one PNG sources. The Android runtime now
+uses optimized `art_samskara_world_t01.webp` and `art_samskara_motif_t01.webp`
+in `app/src/main/res/drawable-nodpi/`, alongside two further forest worlds
+and eight further transparent tree stages. See `design/skin-art-prompts/samskara.md`
+for source versions and tier progression. Compose draws the selected environment,
+tree, permanent level-dependent growth of the painted tree, and independent daily light.
+All dashboard text and state remain Compose UI. Assets are density-independent,
+with no runtime image download, full-screen blur, or new dependency.
 
 ## Environment prompt
 
